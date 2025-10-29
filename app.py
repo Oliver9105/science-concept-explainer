@@ -3,44 +3,28 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 import os
 
-# Load API key
 load_dotenv()
-api_key = os.getenv("GOOGLE_API_KEY")
-genai.configure(api_key=api_key)
+genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
-# Set up the model
 model = genai.GenerativeModel("gemini-2.0-flash")
+st.title("🔬 Persistent AI Science Explainer")
 
-# Streamlit UI
-st.title("🔬 AI Science Explainer (Gemini)")
-
+# Remember user input
 topic = st.text_input("Enter a science topic:")
 
+# Initialize session state keys
+if "explanation" not in st.session_state:
+    st.session_state.explanation = ""
+
 if st.button("Explain"):
-    if not topic:
-        st.warning("Please enter a topic before clicking Explain.")
+    if topic:
+        prompt = f"Explain the science topic '{topic}' in simple terms."
+        response = model.generate_content(prompt)
+        st.session_state.explanation = response.text
     else:
-        prompt = f"""
-You are a friendly and knowledgeable science teacher.
-Explain the science topic: "{topic}" at three levels of understanding.
+        st.warning("Please enter a topic.")
 
-1. Beginner Level: Use simple language and analogies.
-2. Intermediate Level: Include moderate scientific detail.
-3. Advanced Level: Dive into equations or advanced principles.
-
-Afterward, add:
-Fun Facts:
-- Two interesting, lesser-known facts about "{topic}".
-
-End with one curiosity-driven question for the learner.
-"""
-
-
-
-
-
-        try:
-            response = model.generate_content(prompt)
-            st.write(response.text)
-        except Exception as e:
-            st.error(f"⚠️ API Error: {e}")
+# Display stored explanation (persists after reruns)
+if st.session_state.explanation:
+    st.markdown("### Explanation")
+    st.write(st.session_state.explanation)
