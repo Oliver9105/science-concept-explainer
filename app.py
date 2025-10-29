@@ -1,30 +1,29 @@
 import streamlit as st
-import openai
+import google.generativeai as genai
 from dotenv import load_dotenv
 import os
 
-# Load environment variables from .env file
+# Load API key
 load_dotenv()
+api_key = os.getenv("GOOGLE_API_KEY")
+genai.configure(api_key=api_key)
 
-# Access the API key securely
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Set up the model
+model = genai.GenerativeModel("gemini-2.0-flash")
 
 # Streamlit UI
-st.title("🔬 AI Science Explainer")
+st.title("🔬 AI Science Explainer (Gemini)")
 
 topic = st.text_input("Enter a science topic:")
+
 if st.button("Explain"):
     if not topic:
         st.warning("Please enter a topic before clicking Explain.")
     else:
-        # Create a prompt for the OpenAI API
         prompt = f"Explain the science topic '{topic}' in simple terms."
-        
-        # Call OpenAI's ChatCompletion API
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[{"role": "user", "content": prompt}]
-        )
-        
-        explanation = response["choices"][0]["message"]["content"]
-        st.write(explanation)
+
+        try:
+            response = model.generate_content(prompt)
+            st.write(response.text)
+        except Exception as e:
+            st.error(f"⚠️ API Error: {e}")
