@@ -3,50 +3,64 @@ import google.generativeai as genai
 from dotenv import load_dotenv
 import os
 
-# Load API key
+# Load environment variables
 load_dotenv()
 genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 
 # Initialize model
 model = genai.GenerativeModel("gemini-2.0-flash")
 
-# Streamlit UI
-st.title("🔬 AI Science Explainer with Levels")
+# App Title
+st.title("🧠 AI Science Explainer")
 
-# User inputs
-topic = st.text_input("Enter a science topic:")
+# Intro section
+st.markdown("""
+Welcome to the **AI Science Explainer**!  
+Type any science topic below and select your preferred difficulty level to get a clear, tailored explanation.  
+""")
+
+st.divider()
+
+# --- 🧩 INPUT SECTION ---
+st.header("🎓 Choose Your Topic")
+topic = st.text_input("🔍 Enter a science topic:", placeholder="e.g., Photosynthesis")
+
 level = st.selectbox(
-    "Choose difficulty level:",
+    "📘 Select difficulty level:",
     ["Beginner", "Intermediate", "Advanced"]
 )
 
-# Initialize session state
+st.divider()
+
+# --- ⚙️ ACTION SECTION ---
 if "explanation" not in st.session_state:
     st.session_state.explanation = ""
 
-# Handle button click
-if st.button("Explain"):
+st.markdown("### 🚀 Generate Explanation")
+if st.button("✨ Explain Topic"):
     if topic:
-        # Dynamically adjust prompt based on difficulty level
         prompt = f"""
-        You are a science teacher explaining the topic '{topic}' at a {level} level.
+        You are a science teacher explaining '{topic}' at a {level} level.
 
-        - If Beginner: Use simple terms, short sentences, and analogies.
-        - If Intermediate: Include moderate detail and one real-world example.
-        - If Advanced: Explain deeply using technical terms, equations, and theory.
+        - If Beginner: Use simple terms and analogies.
+        - If Intermediate: Add moderate details and a real-world example.
+        - If Advanced: Dive into the underlying scientific theory and terminology.
 
-        Write a clear explanation suitable for the chosen level.
+        Return a clear, engaging explanation suitable for the chosen level.
         """
-
         try:
             response = model.generate_content(prompt)
             st.session_state.explanation = response.text
         except Exception as e:
             st.error(f"⚠️ API Error: {e}")
     else:
-        st.warning("Please enter a topic first.")
+        st.warning("Please enter a topic before clicking Explain.")
 
-# Display explanation
+st.divider()
+
+# --- 📖 OUTPUT SECTION ---
 if st.session_state.explanation:
-    st.markdown(f"### {level} Explanation:")
+    st.header(f"🧩 {level} Explanation")
     st.write(st.session_state.explanation)
+    st.markdown("---")
+    st.success("💡 Tip: Try switching levels to compare how the explanation changes!")
