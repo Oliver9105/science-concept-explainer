@@ -25,11 +25,14 @@ You are a friendly and knowledgeable science teacher.
 Explain the science topic: "{topic}" at three levels of understanding.
 
 1. Beginner Level: Use simple language, short sentences, and a relatable analogy.
-2. Intermediate Level: Provide more scientific detail, use basic technical terms, and include a real-world example.
-3. Advanced Level: Dive deep into principles, equations, or advanced concepts suitable for a university student.
+2. Intermediate Level: Provide more scientific detail, use basic technical terms, and include a short real-world example.
+3. Advanced Level: Dive deep into underlying principles, relevant equations, or advanced concepts suitable for a university student.
 
-End with one curiosity-driven question to encourage further exploration.
+Then, share two true and surprising fun facts about "{topic}" that make the learner curious to know more.
+
+End your response with one curiosity-driven question that encourages further exploration.
 """
+
 
 
         try:
