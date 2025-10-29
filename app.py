@@ -1,11 +1,12 @@
-# 1️⃣ Import the Streamlit library
-import streamlit as st  
+import streamlit as st
 
-# 2️⃣ Create a title for the web app
-st.title("Hello, Streamlit! 👋")  
+# Title of the app
+st.title("Science Topic Explorer 🔬")
 
-# 3️⃣ Display a line of text below the title
-st.write("This is my first Streamlit app.")  
+# Text input field where user can type a topic
+topic = st.text_input("Enter a science topic:")
 
-# 4️⃣ Add an interactive button
-st.button("Click Me!")  
+# Button that triggers the description
+if st.button("Describe"):
+    # When clicked, this code block runs
+    st.write(f"{topic} is an interesting area of science!")
