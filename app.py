@@ -1,8 +1,10 @@
 import streamlit as st
 import google.generativeai as genai
 from dotenv import load_dotenv
+from gtts import gTTS
 import os
 import re
+import tempfile
 
 # --- Setup ---
 load_dotenv()
@@ -10,7 +12,7 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 model = genai.GenerativeModel("gemini-2.0-flash")
 
 st.set_page_config(page_title="AI Science Explainer", page_icon="🧠")
-st.title("🧠 AI Science Explainer + Multi-Quiz Tutor (Gemini 2.0 Flash)")
+st.title("🧠 AI Science Explainer + Audio Tutor (Gemini 2.0 Flash)")
 
 # --- User Inputs ---
 topic = st.text_input("🎓 Enter a science topic:", placeholder="e.g., Gravity")
@@ -26,10 +28,10 @@ if "quizzes" not in st.session_state:
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# --- Generate Explanation + Fun Facts + 3 Quizzes ---
+# --- Generate AI Content ---
 if st.button("✨ Generate Lesson"):
     if topic:
-        with st.spinner("🤖 Generating explanation, fun facts, and 3 quiz questions..."):
+        with st.spinner("🤖 Generating explanation, fun facts, and quiz..."):
             prompt = f"""
             You are a science teacher explaining the topic '{topic}' at a {level} level.
 
@@ -128,13 +130,23 @@ if st.session_state.explanation:
     st.header(f"📖 {level} Explanation")
     st.write(st.session_state.explanation)
 
+    # --- Text-to-Speech ---
+    if st.button("🔊 Read Aloud"):
+        try:
+            tts = gTTS(st.session_state.explanation)
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
+                tts.save(tmp.name)
+                st.audio(tmp.name)
+        except Exception as e:
+            st.error(f"🎤 TTS Error: {e}")
+
 # --- Display Fun Facts ---
 if st.session_state.fun_facts:
     st.subheader("🎉 Fun Facts")
     for fact in st.session_state.fun_facts:
         st.markdown(f"- {fact}")
 
-# --- Display Multiple Quizzes ---
+# --- Display Quizzes ---
 if st.session_state.quizzes:
     st.subheader("🧩 Quick Quiz (3 Questions)")
     for i, quiz in enumerate(st.session_state.quizzes, start=1):
