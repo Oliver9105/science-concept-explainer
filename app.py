@@ -10,164 +10,114 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 model = genai.GenerativeModel("gemini-2.0-flash")
 
 st.set_page_config(page_title="AI Science Explainer", page_icon="🧠")
-st.title("🧠 AI Science Explainer + Quiz (Gemini 2.0 Flash)")
+st.title("🧠 AI Science Explainer + Multi-Quiz Tutor (Gemini 2.0 Flash)")
 
-# --- User Input ---
-topic = st.text_input("🎓 Enter a science topic:", placeholder="e.g., Photosynthesis")
+# --- User Inputs ---
+topic = st.text_input("🎓 Enter a science topic:", placeholder="e.g., Gravity")
 level = st.selectbox("📘 Select difficulty:", ["Beginner", "Intermediate", "Advanced"])
 
 # --- Initialize session state ---
 if "explanation" not in st.session_state:
     st.session_state.explanation = ""
-if "quiz" not in st.session_state:
-    st.session_state.quiz = {}
-if "quiz_answer" not in st.session_state:
-    st.session_state.quiz_answer = None
+if "fun_facts" not in st.session_state:
+    st.session_state.fun_facts = []
+if "quizzes" not in st.session_state:
+    st.session_state.quizzes = []
 if "history" not in st.session_state:
-    st.session_state.history = []  # 🧠 Keeps all generated responses
+    st.session_state.history = []
 
-# --- Generate Explanation + Quiz ---
-if st.button("✨ Generate Explanation and Quiz"):
+# --- Generate Explanation + Fun Facts + 3 Quizzes ---
+if st.button("✨ Generate Lesson"):
     if topic:
-        with st.spinner("🤖 Generating your explanation and quiz... please wait ⏳"):
+        with st.spinner("🤖 Generating explanation, fun facts, and 3 quiz questions..."):
             prompt = f"""
             You are a science teacher explaining the topic '{topic}' at a {level} level.
 
-            Please provide:
-            1. A clear explanation suitable for {level} level.
-            2. One multiple-choice quiz question with four options labeled A), B), C), D).
-            3. The correct answer in the format: Answer: (letter).
-
-            Format your response exactly like this:
+            Please respond in this exact structure:
 
             EXPLANATION:
-            [Your explanation here]
+            [Brief, clear explanation suitable for {level} learners]
 
-            QUESTION:
-            [Your multiple-choice question here]
+            FUN FACTS:
+            - [Fun fact #1]
+            - [Fun fact #2]
 
+            QUIZZES:
+            QUESTION 1:
+            [Question text]
             OPTIONS:
-            A) [Option A]
-            B) [Option B]
-            C) [Option C]
-            D) [Option D]
+            A) ...
+            B) ...
+            C) ...
+            D) ...
+            ANSWER: (letter)
 
-            ANSWER:
-            (Correct letter)
+            QUESTION 2:
+            [Question text]
+            OPTIONS:
+            A) ...
+            B) ...
+            C) ...
+            D) ...
+            ANSWER: (letter)
+
+            QUESTION 3:
+            [Question text]
+            OPTIONS:
+            A) ...
+            B) ...
+            C) ...
+            D) ...
+            ANSWER: (letter)
             """
 
             try:
                 response = model.generate_content(prompt)
-
-                # --- Safe Gemini 2.0 text extraction ---
                 try:
-                    if hasattr(response, "text") and response.text:
-                        text = response.text
-                    else:
-                        text = response.candidates[0].content.parts[0].text
+                    text = response.text if hasattr(response, "text") else response.candidates[0].content.parts[0].text
                 except Exception:
                     text = ""
 
                 if not text:
-                    st.error("⚠️ No explanation returned by the model. Try again.")
+                    st.error("⚠️ No content generated. Try again.")
                     st.stop()
 
-                # --- Debug: Raw AI Output ---
-                with st.expander("🔍 Raw AI Response (Debug View)"):
-                    st.text_area("Raw Response", text, height=200)
+                # --- Parse Explanation + Fun Facts ---
+                explanation_match = re.search(r"EXPLANATION:\s*(.*?)(?=FUN FACTS:|QUIZZES:|$)", text, re.DOTALL)
+                fun_facts_match = re.search(r"FUN FACTS:\s*(.*?)(?=QUIZZES:|QUESTION 1:|$)", text, re.DOTALL)
+                explanation = explanation_match.group(1).strip() if explanation_match else "No explanation generated."
+                fun_facts = [f.strip("-• ").strip() for f in fun_facts_match.group(1).split("\n") if f.strip()] if fun_facts_match else []
 
-                # --- Improved Parsing Logic ---
-                explanation, question, options, answer = "", "", [], ""
-                sections = text.split("\n\n")
+                # --- Parse 3 Questions ---
+                quiz_blocks = re.findall(r"(QUESTION\s*\d+:[\s\S]*?(?=(?:QUESTION\s*\d+:|$)))", text, re.IGNORECASE)
+                quizzes = []
 
-                for section in sections:
-                    lines = section.strip().split("\n")
-                    if not lines:
-                        continue
+                for block in quiz_blocks:
+                    q_match = re.search(r"QUESTION\s*\d*:\s*(.*?)(?=OPTIONS:|ANSWER:|$)", block, re.DOTALL | re.IGNORECASE)
+                    opts = re.findall(r"^[A-D]\)\s*.*", block, re.MULTILINE)
+                    ans_match = re.search(r"ANSWER:\s*\(?([A-D])\)?", block, re.IGNORECASE)
+                    question = q_match.group(1).strip() if q_match else "Question unavailable."
+                    answer = ans_match.group(1).upper() if ans_match else "A"
+                    quizzes.append({"question": question, "options": opts, "answer": answer})
 
-                    first_line = lines[0].lower()
-
-                    if "explanation" in first_line:
-                        explanation_lines = []
-                        for line in lines[1:]:
-                            if line.strip() and not any(
-                                keyword in line.lower() for keyword in ["question", "options", "answer"]
-                            ):
-                                explanation_lines.append(line.strip())
-                        explanation = " ".join(explanation_lines) if explanation_lines else " ".join(lines)
-
-                    elif "question" in first_line:
-                        question = (
-                            " ".join(lines[1:]) if len(lines) > 1 else lines[0].split(":", 1)[-1].strip()
-                        )
-
-                    elif "options" in first_line or any(
-                        line.strip().startswith(("A)", "B)", "C)", "D)")) for line in lines
-                    ):
-                        for line in lines:
-                            line = line.strip()
-                            if line.startswith(("A)", "B)", "C)", "D)")):
-                                options.append(line)
-
-                    elif "answer" in first_line:
-                        for line in lines:
-                            if "answer" in line.lower():
-                                match = re.search(r"\(([A-D])\)", line.upper())
-                                if match:
-                                    answer = match.group(1)
-                                else:
-                                    match = re.search(r"[A-D]", line.upper())
-                                    if match:
-                                        answer = match.group(0)
-
-                # --- Fallback Parsing ---
-                if not explanation:
-                    parts = text.split("QUESTION:")
-                    if len(parts) > 1:
-                        explanation = parts[0].replace("EXPLANATION:", "").strip()
-
-                if not question:
-                    question_match = re.search(
-                        r"QUESTION:\s*(.*?)(?=OPTIONS:|ANSWER:|$)", text, re.IGNORECASE | re.DOTALL
-                    )
-                    if question_match:
-                        question = question_match.group(1).strip()
-
-                if not options:
-                    options = re.findall(r"^[A-D]\)\s*.+$", text, re.MULTILINE)
-
-                if not answer:
-                    answer_match = re.search(r"ANSWER:\s*\(?([A-D])\)?", text, re.IGNORECASE)
-                    if answer_match:
-                        answer = answer_match.group(1)
-                    else:
-                        answer = "A"
-
-                # --- Final Fallback Defaults ---
-                if not explanation:
-                    explanation = "No explanation generated. Please try again."
-                if not question:
-                    question = "Test your understanding:"
-                if not options:
-                    options = ["A) Option A", "B) Option B", "C) Option C", "D) Option D"]
-
-                # --- Save to Session State ---
+                # --- Save to session ---
                 st.session_state.explanation = explanation
-                st.session_state.quiz = {"question": question, "options": options, "answer": answer}
-                st.session_state.quiz_answer = None
+                st.session_state.fun_facts = fun_facts
+                st.session_state.quizzes = quizzes
 
-                # --- Save to History ---
-                if explanation and explanation != "No explanation generated. Please try again.":
-                    st.session_state.history.append(
-                        {"topic": topic, "level": level, "explanation": explanation}
-                    )
-                    st.toast(f"💾 Saved '{topic}' to your learning history!", icon="💡")
+                # --- Save to history ---
+                st.session_state.history.append({
+                    "topic": topic,
+                    "level": level,
+                    "explanation": explanation,
+                    "fun_facts": fun_facts,
+                    "quizzes": quizzes
+                })
 
-                st.success("✅ Explanation and quiz generated successfully!")
+                st.success("✅ Lesson generated successfully!")
 
             except Exception as e:
-                st.error(f"⚠️ API Error: {e}")
-                st.error("Full error details:", str(e))
+                st.error(f"API Error: {e}")
     else:
         st.warning("Please enter a topic first.")
 
@@ -178,39 +128,36 @@ if st.session_state.explanation:
     st.header(f"📖 {level} Explanation")
     st.write(st.session_state.explanation)
 
-# --- Display Quiz ---
-if st.session_state.quiz and st.session_state.quiz.get("options"):
-    quiz = st.session_state.quiz
-    st.subheader("🧩 Quick Quiz")
-    st.write(f"**{quiz['question']}**")
+# --- Display Fun Facts ---
+if st.session_state.fun_facts:
+    st.subheader("🎉 Fun Facts")
+    for fact in st.session_state.fun_facts:
+        st.markdown(f"- {fact}")
 
-    user_choice = st.radio("Choose your answer:", quiz["options"], key="quiz_choice")
+# --- Display Multiple Quizzes ---
+if st.session_state.quizzes:
+    st.subheader("🧩 Quick Quiz (3 Questions)")
+    for i, quiz in enumerate(st.session_state.quizzes, start=1):
+        st.markdown(f"**Q{i}. {quiz['question']}**")
+        user_choice = st.radio("Choose your answer:", quiz["options"], key=f"quiz_{i}")
+        if st.button(f"Submit Q{i}"):
+            match = re.match(r"^([A-D])", user_choice.strip().upper())
+            user_letter = match.group(1) if match else None
+            if user_letter == quiz["answer"]:
+                st.success("✅ Correct!")
+            else:
+                st.error(f"❌ The correct answer was {quiz['answer']})")
+        st.markdown("---")
 
-    if st.button("Submit Answer"):
-        st.session_state.quiz_answer = user_choice
-
-    if st.session_state.quiz_answer:
-        correct_letter = quiz.get("answer", "A").upper().strip()
-
-        user_match = re.match(
-            r"^([A-D])[\)\.\:]\s*", st.session_state.quiz_answer.strip().upper()
-        )
-        user_letter = user_match.group(1) if user_match else None
-
-        if user_letter == correct_letter:
-            st.success("✅ Correct! Well done!")
-        else:
-            st.error(f"❌ Not quite! The correct answer was: **{correct_letter})**")
-
-st.divider()
-
-# --- Display Learning History ---
-st.header("🕒 Previous Explanations")
-
+# --- History ---
+st.header("🕒 Previous Lessons")
 if st.session_state.history:
-    st.write(f"📚 You have **{len(st.session_state.history)}** saved explanations this session.")
     for i, record in enumerate(reversed(st.session_state.history), start=1):
         with st.expander(f"{i}. {record['topic']} ({record['level']})"):
             st.write(record["explanation"])
+            if record["fun_facts"]:
+                st.markdown("**🎉 Fun Facts:**")
+                for fact in record["fun_facts"]:
+                    st.markdown(f"- {fact}")
 else:
-    st.info("No previous explanations yet. Generate one above to start your learning log! 📖")
+    st.info("No saved lessons yet. Generate one above to start learning! 📚")
