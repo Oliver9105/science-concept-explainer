@@ -13,23 +13,27 @@ genai.configure(api_key=os.getenv("GOOGLE_API_KEY"))
 model = genai.GenerativeModel("gemini-2.0-flash")
 
 st.set_page_config(page_title="AI Science Explainer", page_icon="🧠")
-st.title("🧠 AI Science Explainer + Error-Handled Tutor")
+st.title("🧠 AI Science Explainer – Patient Teacher Mode")
 
 # --- Cache Function ---
 @st.cache_data(show_spinner="📦 Retrieving or generating AI explanation...")
 def generate_lesson(topic: str, level: str):
-    """Generate explanation, fun facts, and quizzes for a topic with error handling."""
+    """Generate explanation, fun facts, and quizzes for a topic with gentle teacher tone."""
     prompt = f"""
-    You are a science teacher explaining the topic '{topic}' at a {level} level.
+    You are a calm and patient science teacher who explains complex ideas step-by-step
+    in a friendly tone. Use simple analogies, real-world examples, and short explanations
+    to make science feel approachable.
 
-    Please respond in this exact structure:
+    The topic is '{topic}' at a {level} level.
+
+    Please follow this exact structure:
 
     EXPLANATION:
-    [Brief, clear explanation suitable for {level} learners]
+    [Your explanation here. Be conversational and include at least one relatable example.]
 
     FUN FACTS:
-    - [Fun fact #1]
-    - [Fun fact #2]
+    - [Interesting fact #1]
+    - [Interesting fact #2]
 
     QUIZZES:
     QUESTION 1:
@@ -61,21 +65,20 @@ def generate_lesson(topic: str, level: str):
     """
 
     try:
-        # Simulate timeout guard
         start_time = time.time()
         response = model.generate_content(prompt)
 
-        # Check if response took too long
+        # Timeout handling
         if time.time() - start_time > 15:
-            raise TimeoutError("API request timed out. Try again later.")
+            raise TimeoutError("API request timed out.")
 
-        # Parse model text safely
+        # Text extraction
         if hasattr(response, "text") and response.text:
             text = response.text
         elif hasattr(response, "candidates") and response.candidates:
             text = response.candidates[0].content.parts[0].text
         else:
-            raise ValueError("Invalid API response format.")
+            raise ValueError("Invalid response format.")
 
         # --- Parse Explanation + Fun Facts ---
         explanation_match = re.search(r"EXPLANATION:\s*(.*?)(?=FUN FACTS:|QUIZZES:|$)", text, re.DOTALL)
@@ -100,34 +103,25 @@ def generate_lesson(topic: str, level: str):
             "quizzes": quizzes
         }
 
-    # --- Specific Error Cases ---
-    except TimeoutError as e:
-        st.error("🕒 The AI took too long to respond. Please try again in a few seconds.")
-        return {"explanation": str(e), "fun_facts": [], "quizzes": []}
-
-    except ValueError as e:
-        st.error("⚠️ Received invalid data from the API. Please retry.")
-        return {"explanation": str(e), "fun_facts": [], "quizzes": []}
-
-    except genai.types.generation_types.StopCandidateException:
-        st.error("🚫 The AI stopped generating unexpectedly.")
-        return {"explanation": "Incomplete response from AI.", "fun_facts": [], "quizzes": []}
+    except TimeoutError:
+        st.error("🕒 The AI took too long to respond. Please try again.")
+        return {"explanation": "Timeout occurred.", "fun_facts": [], "quizzes": []}
 
     except Exception as e:
-        st.error(f"❌ Unexpected error: {e}")
+        st.error(f"❌ Error: {e}")
         return {"explanation": "An unexpected error occurred.", "fun_facts": [], "quizzes": []}
 
 # --- UI Inputs ---
-topic = st.text_input("🎓 Enter a science topic:", placeholder="e.g., Black Holes")
+topic = st.text_input("🎓 Enter a science topic:", placeholder="e.g., Photosynthesis")
 level = st.selectbox("📘 Select difficulty:", ["Beginner", "Intermediate", "Advanced"])
 
 if "history" not in st.session_state:
     st.session_state.history = []
 
-# --- Generate or Retrieve from Cache ---
-if st.button("✨ Generate / Retry"):
+# --- Generate Lesson ---
+if st.button("✨ Generate Lesson"):
     if topic:
-        with st.spinner("🤖 Thinking..."):
+        with st.spinner("🤖 Your patient teacher is preparing an explanation..."):
             lesson = generate_lesson(topic, level)
             st.session_state.current = lesson
             st.session_state.history.append({
@@ -137,7 +131,7 @@ if st.button("✨ Generate / Retry"):
                 "fun_facts": lesson["fun_facts"],
                 "quizzes": lesson["quizzes"]
             })
-        st.success("✅ Lesson generated (with full error protection).")
+        st.success("✅ Lesson ready!")
     else:
         st.warning("Please enter a topic first.")
 
