@@ -1,30 +1,281 @@
-import os, re, io, tempfile
+import os, re, io, tempfile, json, time
 import streamlit as st
 from dotenv import load_dotenv
 import google.generativeai as genai
 from gtts import gTTS
-import time
 from datetime import datetime
 
 # ---------- Setup ----------
 load_dotenv()
 GENAI_API_KEY = os.getenv("GOOGLE_API_KEY")
+HISTORY_FILE = "lessons.json"
 
 st.set_page_config(
-    page_title="AI Science Explainer", 
-    page_icon="🧠", 
+    page_title="AI Science Explainer",
+    page_icon="🧠",
     layout="wide",
     initial_sidebar_state="expanded"
 )
-st.title("🧠 AI Science Explainer — Core Learning Edition")
+st.title("🧠 AI Science Explainer — Robust Learning Edition")
+
+# ---------- Persistence Utilities ----------
+def save_history_to_file(history):
+    """Save user lesson history to local JSON file."""
+    try:
+        with open(HISTORY_FILE, "w", encoding="utf-8") as f:
+            json.dump(history, f, indent=2)
+        return True
+    except Exception as e:
+        st.error(f"Failed to save history: {e}")
+        return False
+
+def load_history_from_file():
+    """Load user lesson history if it exists."""
+    if os.path.exists(HISTORY_FILE):
+        try:
+            with open(HISTORY_FILE, "r", encoding="utf-8") as f:
+                return json.load(f)
+        except Exception as e:
+            st.error(f"Failed to load history: {e}")
+            return []
+    return []
+
+# ---------- Quiz Generator ----------
+def generate_topic_specific_quiz(topic, level, explanation_text=""):
+    """Generate quiz questions specific to the topic using keyword analysis."""
+    
+    # Topic-specific question templates
+    topic_templates = {
+        "photosynthesis": {
+            "Beginner": [
+                {
+                    "question": "What do plants need to make food?",
+                    "options": ["A) Sunlight, water, and carbon dioxide", "B) Only water and soil", "C) Just sunlight", "D) Only carbon dioxide"],
+                    "answer": "A"
+                },
+                {
+                    "question": "What gas do plants release during photosynthesis?",
+                    "options": ["A) Carbon dioxide", "B) Oxygen", "C) Nitrogen", "D) Hydrogen"],
+                    "answer": "B"
+                },
+                {
+                    "question": "Where in the plant does photosynthesis happen?",
+                    "options": ["A) In the roots", "B) In the leaves", "C) In the stems", "D) In the flowers"],
+                    "answer": "B"
+                }
+            ],
+            "Intermediate": [
+                {
+                    "question": "What is the main purpose of chlorophyll in photosynthesis?",
+                    "options": ["A) To absorb water", "B) To capture light energy", "C) To release oxygen", "D) To store carbon dioxide"],
+                    "answer": "B"
+                },
+                {
+                    "question": "What is the chemical formula for glucose produced in photosynthesis?",
+                    "options": ["A) CO2", "B) H2O", "C) C6H12O6", "D) O2"],
+                    "answer": "C"
+                },
+                {
+                    "question": "Which process is the opposite of photosynthesis?",
+                    "options": ["A) Respiration", "B) Transpiration", "C) Fermentation", "D) Decomposition"],
+                    "answer": "A"
+                }
+            ],
+            "Advanced": [
+                {
+                    "question": "What is the quantum efficiency of Photosystem II in optimal conditions?",
+                    "options": ["A) 0.5", "B) 0.7", "C) 0.85", "D) 0.95"],
+                    "answer": "C"
+                },
+                {
+                    "question": "Which molecule acts as the primary electron acceptor in Photosystem I?",
+                    "options": ["A) NADP+", "B) ADP", "C) ATP", "D) FAD"],
+                    "answer": "A"
+                },
+                {
+                    "question": "What is the typical action spectrum peak for chlorophyll a?",
+                    "options": ["A) 450 nm", "B) 520 nm", "C) 680 nm", "D) 750 nm"],
+                    "answer": "C"
+                }
+            ]
+        },
+        "dna": {
+            "Beginner": [
+                {
+                    "question": "What does DNA stand for?",
+                    "options": ["A) Deoxyribonucleic Acid", "B) Dynamic Nuclear Acid", "C) Double Nucleic Acid", "D) DNA is just DNA"],
+                    "answer": "A"
+                },
+                {
+                    "question": "Where is DNA found in cells?",
+                    "options": ["A) Only in the nucleus", "B) In mitochondria only", "C) In the nucleus and mitochondria", "D) Throughout the cell"],
+                    "answer": "C"
+                },
+                {
+                    "question": "What shape is DNA?",
+                    "options": ["A) Single strand", "B) Double helix", "C) Triple helix", "D) Circular ring"],
+                    "answer": "B"
+                }
+            ],
+            "Intermediate": [
+                {
+                    "question": "How many base pairs are in the human genome approximately?",
+                    "options": ["A) 1 billion", "B) 3 billion", "C) 10 billion", "D) 100 billion"],
+                    "answer": "B"
+                },
+                {
+                    "question": "Which base pairs are complementary in DNA?",
+                    "options": ["A) A-T and G-C", "B) A-G and T-C", "C) A-C and G-T", "D) A-A and T-T"],
+                    "answer": "A"
+                },
+                {
+                    "question": "What enzyme reads the DNA code during transcription?",
+                    "options": ["A) DNA polymerase", "B) RNA polymerase", "C) Helicase", "D) Ligase"],
+                    "answer": "B"
+                }
+            ],
+            "Advanced": [
+                {
+                    "question": "What is the melting temperature of DNA primarily dependent on?",
+                    "options": ["A) Length and GC content", "B) pH only", "C) Temperature only", "D) Water content"],
+                    "answer": "A"
+                },
+                {
+                    "question": "Which histone variant is associated with active transcription?",
+                    "options": ["A) H1", "B) H2A", "C) H3.3", "D) H4"],
+                    "answer": "C"
+                },
+                {
+                    "question": "What is the typical nucleosome repeat length in humans?",
+                    "options": ["A) 160 bp", "B) 185 bp", "C) 200 bp", "D) 220 bp"],
+                    "answer": "C"
+                }
+            ]
+        },
+        "atom": {
+            "Beginner": [
+                {
+                    "question": "What are the three main parts of an atom?",
+                    "options": ["A) Protons, neutrons, electrons", "B) Protons, neutrons, nucleus", "C) Electrons, nucleus, shell", "D) Protons, electrons, shell"],
+                    "answer": "A"
+                },
+                {
+                    "question": "Where is most of the mass of an atom located?",
+                    "options": ["A) In the electrons", "B) In the nucleus", "C) In the shells", "D) Equally distributed"],
+                    "answer": "B"
+                },
+                {
+                    "question": "What charge do protons have?",
+                    "options": ["A) Negative", "B) Positive", "C) Neutral", "D) Variable"],
+                    "answer": "B"
+                }
+            ],
+            "Intermediate": [
+                {
+                    "question": "How many electrons can the first energy level hold?",
+                    "options": ["A) 2", "B) 8", "C) 18", "D) 32"],
+                    "answer": "A"
+                },
+                {
+                    "question": "What happens to atomic radius as you go down a group?",
+                    "options": ["A) Increases", "B) Decreases", "C) Stays the same", "D) Fluctuates"],
+                    "answer": "A"
+                },
+                {
+                    "question": "Which particle has no charge?",
+                    "options": ["A) Proton", "B) Electron", "C) Neutron", "D) All have charges"],
+                    "answer": "C"
+                }
+            ],
+            "Advanced": [
+                {
+                    "question": "What is the quantum mechanical explanation for electron shells?",
+                    "options": ["A) Circular orbits", "B) Probability clouds", "C) Fixed positions", "D) Random movement"],
+                    "answer": "B"
+                },
+                {
+                    "question": "What is the Bohr radius of hydrogen in meters?",
+                    "options": ["A) 5.29 × 10^-11", "B) 5.29 × 10^-10", "C) 5.29 × 10^-12", "D) 5.29 × 10^-9"],
+                    "answer": "A"
+                },
+                {
+                    "question": "Which quantum number determines the energy level of an electron?",
+                    "options": ["A) Principal (n)", "B) Azimuthal (l)", "C) Magnetic (m)", "D) Spin (s)"],
+                    "answer": "A"
+                }
+            ]
+        }
+    }
+    
+    # General fallback templates for any topic
+    general_templates = {
+        "Beginner": [
+            {
+                "question": f"What is the main concept of {topic}?",
+                "options": [f"A) A basic process in {topic}", f"B) A complex theory about {topic}", f"C) A simple fact about {topic}", f"D) A measurement of {topic}"],
+                "answer": "A"
+            },
+            {
+                "question": f"How is {topic} important in everyday life?",
+                "options": [f"A) It affects daily activities", f"B) It has no practical use", f"C) It's only theoretical", f"D) It's too complex for daily use"],
+                "answer": "A"
+            },
+            {
+                "question": f"What would happen if {topic} didn't exist?",
+                "options": [f"A) Nothing significant", f"B) Major changes in our world", f"C) Only minor effects", f"D) Unknown consequences"],
+                "answer": "B"
+            }
+        ],
+        "Intermediate": [
+            {
+                "question": f"What is the underlying mechanism of {topic}?",
+                "options": [f"A) Simple cause and effect", f"B) Complex interactions between components", f"C) Random processes", f"D) Pure speculation"],
+                "answer": "B"
+            },
+            {
+                "question": f"Which scientific field best describes {topic}?",
+                "options": ["A) Physics", "B) Chemistry", "C) Biology", "D) It spans multiple fields"],
+                "answer": "D"
+            },
+            {
+                "question": f"What evidence supports our understanding of {topic}?",
+                "options": ["A) Theoretical models", "B) Experimental data", "C) Mathematical proof", "D) All of the above"],
+                "answer": "D"
+            }
+        ],
+        "Advanced": [
+            {
+                "question": f"What are the mathematical models used to describe {topic}?",
+                "options": ["A) Linear equations", "B) Differential equations", "C) Statistical models", "D) Complex computational models"],
+                "answer": "D"
+            },
+            {
+                "question": f"How does {topic} relate to fundamental physics principles?",
+                "options": ["A) It's unrelated", "B) It follows standard physical laws", "C) It challenges current understanding", "D) It's purely philosophical"],
+                "answer": "B"
+            },
+            {
+                "question": f"What are the current research frontiers in {topic}?",
+                "options": ["A) Established knowledge", "B) Active investigation", "C) Speculative theories", "D) Unknown territory"],
+                "answer": "B"
+            }
+        ]
+    }
+    
+    # Check for specific topic matches
+    topic_lower = topic.lower()
+    for key, templates in topic_templates.items():
+        if key in topic_lower or any(keyword in topic_lower for keyword in key.split()):
+            return templates.get(level, templates["Beginner"])
+    
+    # Use general templates as fallback
+    return general_templates.get(level, general_templates["Beginner"])
 
 # ---------- API Configuration ----------
 @st.cache_resource(show_spinner="🔧 Initializing AI services...")
 def init_gemini():
-    """Initialize Google Gemini AI"""
     if not GENAI_API_KEY:
         return None, "❌ Missing GOOGLE_API_KEY in .env"
-    
     try:
         genai.configure(api_key=GENAI_API_KEY)
         model = genai.GenerativeModel("gemini-2.0-flash")
@@ -35,166 +286,178 @@ def init_gemini():
 # ---------- Core Functions ----------
 @st.cache_data(show_spinner="🤖 Generating explanation...")
 def generate_explanation(topic, level):
-    """Generate comprehensive science explanation with quiz"""
-    
-    # Create context-aware prompt based on level
+    """Generate comprehensive science explanation with guaranteed quiz."""
     level_contexts = {
         "Beginner": "simple language, basic concepts, everyday examples",
-        "Intermediate": "moderate complexity, scientific terminology, practical applications", 
+        "Intermediate": "moderate complexity, scientific terminology, practical applications",
         "Advanced": "detailed explanations, complex concepts, technical precision"
     }
-    
     context = level_contexts.get(level, level_contexts["Beginner"])
     
     prompt = f"""
-You are an expert science teacher creating educational content for a {level} student.
-
-TOPIC: {topic}
-COMPLEXITY LEVEL: {level}
-APPROACH: {context}
+You are a patient, engaging science teacher explaining the topic '{topic}' for a {level} learner.
 
 Please provide:
+1. CLEAR EXPLANATION (200-300 words): use {context}, give one real-world example.
+2. ENGAGING FUN FACTS (exactly 2)
+3. INTERACTIVE QUIZ (exactly 3 questions): multiple choice A-D, with answer letters.
 
-1. CLEAR EXPLANATION (200-300 words):
-   - Define the concept clearly
-   - Explain key processes/mechanisms
-   - Include one real-world, relatable example
-   - Use level-appropriate language
-
-2. ENGAGING FUN FACTS (exactly 2):
-   - Surprising or interesting details
-   - Relevant to the main topic
-   - Age-appropriate and memorable
-
-3. INTERACTIVE QUIZ (exactly 3 questions):
-   - Multiple choice (A, B, C, D options)
-   - Test understanding, not just memorization
-   - Include answer explanations
-   - Mix conceptual and application questions
-
-Format your response clearly with headers.
+Format with clear headers: EXPLANATION, FUN FACTS, QUIZ QUESTIONS.
 """
-    
     try:
         response = MODEL.generate_content(prompt)
         text = getattr(response, "text", "") or response.candidates[0].content.parts[0].text
         return process_ai_response(text, topic, level)
     except Exception as e:
+        # Fallback response when AI fails
+        explanation = f"{topic} is an important scientific concept. It involves various processes and mechanisms that are fundamental to understanding our world. The applications of {topic} are found throughout nature and technology, making it essential for scientific literacy."
+        
         return {
-            "error": f"Failed to generate content: {str(e)}",
+            "explanation": explanation,
+            "fun_facts": [f"Many scientists study {topic} extensively.", f"{topic} has practical applications in daily life."],
+            "quizzes": generate_topic_specific_quiz(topic, level),
             "topic": topic,
             "level": level,
-            "timestamp": datetime.now().isoformat()
+            "timestamp": datetime.now().isoformat(),
+            "word_count": len(explanation.split()),
+            "ai_generated": False
         }
 
 def process_ai_response(text, topic, level):
-    """Process and structure the AI response"""
+    """Parse Gemini output into structured data with guaranteed quiz."""
     
     # Extract explanation
-    exp_match = re.search(r"1\.?\s*CLEAR EXPLANATION.*?(?=2\.|$)", text, re.S | re.I)
-    if exp_match:
-        explanation = exp_match.group(0).replace("1.", "").strip()
-    else:
-        explanation = text.split("2.")[0].strip() if "2." in text else text
+    exp_patterns = [
+        r"EXPLANATION:?\s*(.*?)(?=FUN FACTS:|QUIZ|$)",
+        r"1\.?\s*CLEAR EXPLANATION.*?(?=2\.|$)",
+        r"EXPLANATION\s*(.*?)(?=\n\n|$)"
+    ]
+    
+    explanation = ""
+    for pattern in exp_patterns:
+        exp_match = re.search(pattern, text, re.S | re.I)
+        if exp_match:
+            explanation = exp_match.group(1).strip()
+            break
+    
+    if not explanation:
+        # Fallback explanation
+        explanation = f"{topic} is a fundamental scientific concept that involves important processes and principles. Understanding {topic} helps us better comprehend how the world works and has numerous practical applications in everyday life."
     
     # Extract fun facts
-    facts_match = re.search(r"2\.?\s*ENGAGING FUN FACTS.*?(?=3\.|$)", text, re.S | re.I)
-    if facts_match:
-        facts_text = facts_match.group(0).replace("2.", "").strip()
-        facts = re.findall(r"[-•]\s*(.+)", facts_text)[:2]
-        facts = [f.strip() for f in facts if f.strip()]
-    else:
-        facts = ["Fun fact extraction failed", "This is a placeholder fact"]
+    facts_patterns = [
+        r"FUN FACTS?:?\s*(.*?)(?=QUIZ|$)",
+        r"2\.?\s*ENGAGING FUN FACTS.*?(?=3\.|$)"
+    ]
     
-    # Extract quiz questions
-    quiz_match = re.search(r"3\.?\s*INTERACTIVE QUIZ.*", text, re.S | re.I)
-    quizzes = []
+    facts = []
+    for pattern in facts_patterns:
+        facts_match = re.search(pattern, text, re.S | re.I)
+        if facts_match:
+            facts_text = facts_match.group(1).strip()
+            extracted_facts = re.findall(r"[-•]\s*(.+)", facts_text)
+            facts.extend(extracted_facts)
+            break
     
-    if quiz_match:
-        quiz_text = quiz_match.group(0).replace("3.", "").strip()
-        
-        # Find individual questions
-        question_blocks = re.findall(r"(Q\d*\.?[^Q]*?)(?=Q\d*\.?|$)", quiz_text, re.S)
-        
-        for block in question_blocks[:3]:
-            # Extract question
-            q_match = re.search(r"(?:Q\d*\.?)?\s*([^?]*\?)", block)
-            question_text = q_match.group(1).strip() if q_match else "Question not found"
-            
-            # Extract options
-            options = re.findall(r"[A-D]\)\s*([^\n]+)", block)
-            if len(options) < 4:  # Pad with defaults if needed
-                while len(options) < 4:
-                    options.append(f"Option {len(options)+1}")
-            
-            # Extract answer
-            ans_match = re.search(r"ANSWER:\s*\(?([A-D])\)?", block, re.I)
-            answer = ans_match.group(1).upper() if ans_match else "A"
-            
-            quizzes.append({
-                "question": question_text,
-                "options": [f"{chr(65+i)}) {opt}" for i, opt in enumerate(options[:4])],
-                "answer": answer
-            })
-    else:
-        # Fallback quizzes
-        quizzes = [
-            {
-                "question": f"What is the main concept discussed about {topic}?",
-                "options": ["A) A simple definition", "B) A complex process", "C) A basic theory", "D) All of the above"],
-                "answer": "A"
-            },
-            {
-                "question": f"How is {topic} important in real life?",
-                "options": ["A) It's not important", "B) Has practical applications", "C) Only academic value", "D) Unknown significance"],
-                "answer": "B"
-            },
-            {
-                "question": f"What would you need to understand {topic} better?",
-                "options": ["A) More examples", "B) Simpler language", "C) Deeper study", "D) Visual aids"],
-                "answer": "A"
-            }
-        ]
+    if not facts:
+        facts = [f"Research on {topic} continues to reveal new insights.", f"{topic} plays a crucial role in scientific understanding."]
+    
+    facts = facts[:2] if len(facts) >= 2 else facts + [f"Interesting fact about {topic}."] * (2 - len(facts))
+    
+    # Extract quiz with multiple robust patterns
+    quiz_questions = extract_robust_quiz(text, topic, level)
     
     return {
         "explanation": explanation,
         "fun_facts": facts,
-        "quizzes": quizzes,
+        "quizzes": quiz_questions,
         "topic": topic,
         "level": level,
         "timestamp": datetime.now().isoformat(),
-        "word_count": len(explanation.split())
+        "word_count": len(explanation.split()),
+        "ai_generated": True
     }
 
+def extract_robust_quiz(text, topic, level):
+    """Extract quiz with multiple fallback strategies."""
+    
+    # Strategy 1: Look for numbered questions
+    quiz_patterns = [
+        r"(?:Question\s*\d*:|Q\d*\.)\s*([^?]*\?)[\s\S]*?(?:A\)|Option\s*A)[\s\S]*?(?:B\)|Option\s*B)[\s\S]*?(?:C\)|Option\s*C)[\s\S]*?(?:D\)|Option\s*D)[\s\S]*?(?:Answer:\s*([A-D]))",
+        r"(\d+\.\s*[^?]*\?)[\s\S]*?A\)\s*([^\n]+)[\s\S]*?B\)\s*([^\n]+)[\s\S]*?C\)\s*([^\n]+)[\s\S]*?D\)\s*([^\n]+)[\s\S]*?(?:Answer:\s*([A-D]))?",
+        r"(?:QUESTION\s*\d*:)\s*([^?]*\?)[\s\S]*?(?:OPTIONS?|CHOICES?)[\s\S]*?(?:A\)[\s\S]*?B\)[\s\S]*?C\)[\s\S]*?D\))"
+    ]
+    
+    extracted_quizzes = []
+    
+    for pattern in quiz_patterns:
+        matches = re.findall(pattern, text, re.MULTILINE | re.DOTALL)
+        for match in matches:
+            if len(match) >= 5:  # Need question + 4 options minimum
+                question = match[0].strip() if match[0] else f"Question about {topic}"
+                
+                # Extract options (flexible)
+                full_match = match[0] if isinstance(match[0], str) else " ".join(str(m) for m in match[:4])
+                options = re.findall(r"[A-D]\)\s*([^\n]+)", full_match)
+                
+                if len(options) >= 3:  # Need at least 3 options
+                    # Pad to 4 options
+                    while len(options) < 4:
+                        options.append(f"Option {len(options)+1}")
+                    
+                    # Extract answer
+                    answer = "A"
+                    if len(match) > len(options):
+                        answer_match = match[-1]
+                        if answer_match and answer_match.upper() in "ABCD":
+                            answer = answer_match.upper()
+                    
+                    extracted_quizzes.append({
+                        "question": question,
+                        "options": [f"{chr(65+i)}) {opt.strip()}" for i, opt in enumerate(options[:4])],
+                        "answer": answer
+                    })
+    
+    if len(extracted_quizzes) >= 3:
+        return extracted_quizzes[:3]
+    
+    # Strategy 2: Use AI response but ensure we have 3 questions
+    if len(extracted_quizzes) > 0:
+        # If we have some questions, complete with topic-specific ones
+        while len(extracted_quizzes) < 3:
+            fallback_quiz = generate_topic_specific_quiz(topic, level)
+            for quiz in fallback_quiz:
+                if quiz not in extracted_quizzes and len(extracted_quizzes) < 3:
+                    extracted_quizzes.append(quiz)
+                    break
+    
+    # Strategy 3: Complete fallback - generate all questions
+    if len(extracted_quizzes) < 3:
+        fallback_quizzes = generate_topic_specific_quiz(topic, level)
+        return fallback_quizzes
+    
+    return extracted_quizzes
+
 def extract_key_points(explanation):
-    """Extract key points from explanation text"""
-    # Simple extraction - split by sentences and filter meaningful ones
+    """Extract 3-4 concise takeaways."""
     sentences = explanation.split('.')
-    key_points = []
-    
-    for sentence in sentences[:4]:  # Take first 4 meaningful sentences
-        sentence = sentence.strip()
-        if len(sentence) > 20 and not sentence.startswith('**'):  # Filter out short or formatting lines
-            key_points.append(sentence[:100] + "..." if len(sentence) > 100 else sentence)
-    
-    return key_points if key_points else ["Key concept explained in detail", "Important process or mechanism described", "Real-world application provided"]
+    points = [s.strip() for s in sentences if len(s.strip()) > 20][:4]
+    return points or ["Main ideas extracted from explanation."]
 
 @st.cache_data(show_spinner="🔊 Generating audio...")
 def generate_audio(text, language='en'):
-    """Generate text-to-speech audio"""
+    """Convert text to speech with gTTS."""
     try:
-        tts = gTTS(text=text, lang=language, slow=False)
-        
-        # Save to temporary file
+        tts = gTTS(text=text, lang=language)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
             tts.save(tmp.name)
             return tmp.name, None
     except Exception as e:
         return None, str(e)
 
-# ---------- Session State Management ----------
+# ---------- Session State ----------
 if "history" not in st.session_state:
-    st.session_state.history = []
+    st.session_state.history = load_history_from_file()
 if "current_lesson" not in st.session_state:
     st.session_state.current_lesson = None
 if "quiz_answers" not in st.session_state:
@@ -208,251 +471,102 @@ MODEL, status = init_gemini()
 # ---------- Sidebar ----------
 with st.sidebar:
     st.header("🎯 Learning Control Panel")
-    
-    # API Status
-    st.subheader("📡 System Status")
     st.markdown(f"**AI Engine:** {status}")
-    
-    if MODEL:
-        st.success("✅ Ready to teach!")
-    else:
-        st.error("⚠️ Setup incomplete - Add GOOGLE_API_KEY to .env")
-    
-    # Learning Statistics
-    st.subheader("📊 Your Progress")
-    st.metric("Lessons Generated", len(st.session_state.history))
-    
-    if st.session_state.history:
-        recent_topics = [lesson["topic"] for lesson in st.session_state.history[-3:]]
-        st.caption("Recent topics:")
-        for topic in recent_topics:
-            st.caption(f"• {topic}")
-    
-    # Settings
-    st.subheader("⚙️ Preferences")
-    audio_language = st.selectbox("Audio Language:", ["en", "es", "fr", "de", "it"], index=0)
-    
-    # Quick Actions
-    st.subheader("⚡ Quick Actions")
-    if st.button("🧹 Clear Session"):
-        for key in list(st.session_state.keys()):
-            if key != "audio_file":  # Keep audio file for current session
-                del st.session_state[key]
-        st.success("Session cleared!")
+    st.metric("Lessons Stored", len(st.session_state.history))
+
+    audio_language = st.selectbox("🎧 Audio Language", ["en", "es", "fr", "de"], index=0)
+
+    st.markdown("---")
+    if st.button("💾 Save Progress Now"):
+        if save_history_to_file(st.session_state.history):
+            st.success("✅ History saved successfully!")
+    if st.button("📤 Export Lessons"):
+        try:
+            with open(HISTORY_FILE, "rb") as f:
+                st.download_button("⬇️ Download JSON", data=f, file_name="my_lessons.json")
+        except Exception as e:
+            st.error(f"Export failed: {e}")
+    if st.button("🧹 Clear All History"):
+        st.session_state.history = []
+        save_history_to_file([])
+        st.success("Session cleared.")
         st.rerun()
-    
-    if st.button("📈 Show Statistics"):
-        if st.session_state.history:
-            topics = [lesson["topic"] for lesson in st.session_state.history]
-            levels = [lesson["level"] for lesson in st.session_state.history]
-            
-            st.write("**Most Explored Topics:**")
-            from collections import Counter
-            topic_counts = Counter(topics)
-            for topic, count in topic_counts.most_common(5):
-                st.write(f"• {topic}: {count} times")
-            
-            st.write("**Level Distribution:**")
-            level_counts = Counter(levels)
-            for level, count in level_counts.items():
-                st.write(f"• {level}: {count} lessons")
 
 # ---------- Main Interface ----------
-st.markdown("---")
-
-# Input Section
-col1, col2, col3 = st.columns([3, 1, 1])
-
-with col1:
-    topic = st.text_input(
-        "🎓 **What would you like to learn about?**", 
-        placeholder="e.g., Photosynthesis, Quantum Physics, Climate Change...",
-        key="main_topic_input"
-    )
-
-with col2:
-    level = st.selectbox(
-        "📚 **Difficulty Level:**", 
-        ["Beginner", "Intermediate", "Advanced"],
-        key="main_level_select"
-    )
-
-with col3:
-    generate_btn = st.button(
-        "✨ **Generate Lesson**",
-        type="primary",
-        use_container_width=True,
-        key="main_generate_btn"
-    )
-
-# Progress indicator
-if st.session_state.history and not st.session_state.current_lesson:
-    st.info(f"📖 You've explored {len(st.session_state.history)} topics. Continue learning or explore something new!")
-
-st.markdown("---")
-
-# ---------- Lesson Generation ----------
-if generate_btn and topic:
+st.divider()
+topic = st.text_input("🎓 Enter a science topic", placeholder="e.g., Photosynthesis")
+level = st.selectbox("📘 Select Level", ["Beginner", "Intermediate", "Advanced"])
+if st.button("✨ Generate Lesson"):
     if not MODEL:
-        st.error("❌ AI service not available. Please check your GOOGLE_API_KEY configuration.")
-    else:
-        with st.spinner(f"🧠 Generating comprehensive lesson on {topic}..."):
-            # Add progress steps
-            progress_bar = st.progress(0)
-            status_text = st.empty()
-            
-            status_text.text("🤖 Analyzing topic...")
-            progress_bar.progress(25)
-            time.sleep(0.5)
-            
-            status_text.text("📝 Creating explanation...")
-            progress_bar.progress(50)
-            time.sleep(0.5)
-            
-            status_text.text("🎉 Preparing fun facts...")
-            progress_bar.progress(75)
-            time.sleep(0.5)
-            
-            # Generate the lesson
-            lesson_data = generate_explanation(topic, level)
-            
-            if "error" in lesson_data:
-                st.error(lesson_data["error"])
+        st.error("❌ AI not ready. Check API key.")
+    elif topic:
+        with st.spinner(f"Generating lesson on {topic}..."):
+            data = generate_explanation(topic, level)
+            if "error" in data:
+                st.error(data["error"])
             else:
-                # Update session state
-                st.session_state.current_lesson = lesson_data
-                st.session_state.history.append(lesson_data)
-                st.session_state.quiz_answers = {}  # Reset quiz answers
-                
-                status_text.text("✅ Lesson ready!")
-                progress_bar.progress(100)
-                
-                # Success feedback
-                st.success(f"🎉 **Lesson on '{topic}' is ready!** Explore the tabs below to dive deeper.")
+                st.session_state.current_lesson = data
+                st.session_state.history.append(data)
+                save_history_to_file(st.session_state.history)
+                st.success(f"✅ Lesson on {topic} ready! (Quiz guaranteed)")
                 st.balloons()
-                
-                time.sleep(1)
-                progress_bar.empty()
-                status_text.empty()
+    else:
+        st.warning("Enter a topic first!")
 
-# ---------- Main Content Area ----------
+# ---------- Display Lesson ----------
 if st.session_state.current_lesson:
     lesson = st.session_state.current_lesson
     
-    # Lesson Header
-    col1, col2, col3 = st.columns([2, 1, 1])
-    
+    # Lesson header with generation status
+    col1, col2 = st.columns([3, 1])
     with col1:
-        st.subheader(f"📖 **{lesson['topic']}** ({lesson['level']})")
-        st.caption(f"Generated on {datetime.fromisoformat(lesson['timestamp']).strftime('%B %d, %Y at %I:%M %p')}")
-    
+        st.subheader(f"📘 {lesson['topic']} ({lesson['level']})")
+        if lesson.get('ai_generated', True):
+            st.caption("🤖 AI Generated Content")
+        else:
+            st.caption("⚠️ Fallback Mode - Quiz Generated Locally")
     with col2:
-        if st.button("🔊 Generate Audio", key="header_audio_btn"):
-            with st.spinner("🔊 Creating audio version..."):
-                audio_file, error = generate_audio(
-                    f"Lesson on {lesson['topic']}. {lesson['explanation']}", 
-                    language=audio_language
-                )
-                
-                if error:
-                    st.error(f"Audio generation failed: {error}")
-                else:
-                    st.session_state.audio_file = audio_file
-                    st.success("Audio ready!")
-    
-    with col3:
-        new_lesson_btn = st.button("🔄 New Topic", key="new_lesson_btn")
-        if new_lesson_btn:
-            st.session_state.current_lesson = None
-            st.rerun()
-    
-    st.markdown("---")
-    
-    # Main Content Tabs
-    tab1, tab2, tab3, tab4 = st.tabs(["📘 **Explanation**", "🎉 **Fun Facts**", "🧩 **Interactive Quiz**", "🔊 **Audio Player**"])
-    
-    # Tab 1: Explanation
+        if st.button("🔄 Regenerate"):
+            with st.spinner("Creating new lesson..."):
+                new_lesson = generate_explanation(lesson['topic'], lesson['level'])
+                st.session_state.current_lesson = new_lesson
+                st.session_state.history[-1] = new_lesson
+                st.rerun()
+
+    tab1, tab2, tab3, tab4 = st.tabs(["📘 Explanation", "🎉 Fun Facts", "🧩 Interactive Quiz", "🔊 Audio"])
+
+    # Explanation Tab
     with tab1:
-        col1, col2 = st.columns([3, 1])
+        st.markdown(lesson["explanation"])
+        st.caption(f"📊 {lesson['word_count']} words • Generated {datetime.fromisoformat(lesson['timestamp']).strftime('%H:%M %p')}")
         
-        with col1:
-            st.markdown("### 📖 Core Concept")
-            st.markdown(lesson["explanation"])
-            
-            # Word count and reading time
-            st.caption(f"📊 **{lesson['word_count']} words** • ⏱️ **{max(1, lesson['word_count'] // 200)} min read**")
-            
-            # Additional context
-            st.markdown("---")
-            st.markdown("### 💡 Key Takeaways")
-            
-            # Auto-extract key points from explanation
-            key_points = extract_key_points(lesson["explanation"])
-            for i, point in enumerate(key_points, 1):
-                st.write(f"{i}. {point}")
-        
-        with col2:
-            st.markdown("### 🎯 Quick Actions")
-            
-            if st.button("📤 Share Explanation", key="share_explanation"):
-                st.info("💡 Copy this link or use the export feature below!")
-                
-            if st.button("💾 Save for Later", key="save_explanation"):
-                st.success("✅ Added to your saved lessons!")
-                # In a real app, this would save to a database
-            
-            if st.button("🔄 Regenerate", key="regenerate_explanation"):
-                with st.spinner("🔄 Creating new explanation..."):
-                    new_lesson = generate_explanation(lesson["topic"], lesson["level"])
-                    st.session_state.current_lesson = new_lesson
-                    st.rerun()
-    
-    # Tab 2: Fun Facts
+        st.markdown("### 💡 Key Takeaways")
+        for pt in extract_key_points(lesson["explanation"]):
+            st.markdown(f"- {pt}")
+
+    # Fun Facts Tab
     with tab2:
-        st.markdown("### 🎉 Surprising Discoveries")
-        st.markdown("These fascinating facts will help you remember and understand the concept better!")
-        
+        st.markdown("### 🎉 Fascinating Discoveries")
         for i, fact in enumerate(lesson["fun_facts"], 1):
-            with st.expander(f"🧠 **Fun Fact {i}**", expanded=i <= 2):
-                st.markdown(fact)
-                
-                # Add some interaction
-                col_a, col_b = st.columns([1, 1])
-                with col_a:
-                    if st.button(f"👍 Amazing!", key=f"fact_{i}_like"):
-                        st.success("🤩 Amazing indeed!")
-                
-                with col_b:
-                    if st.button(f"❓ Tell me more", key=f"fact_{i}_more"):
-                        st.info("💡 This is part of what makes science so interesting - there's always more to discover!")
-        
-        # Fun facts insights
-        st.markdown("---")
-        st.markdown("### 🔍 What Makes This Interesting?")
-        st.markdown(f"""
-        These facts about **{lesson['topic']}** demonstrate how science connects to our everyday lives. 
-        Understanding these connections helps make abstract concepts more concrete and memorable.
-        
-        **Why fun facts work:**
-        - ✨ Create emotional connection to the topic
-        - 🎯 Make information more memorable  
-        - 🌟 Spark curiosity for further learning
-        """)
-    
-    # Tab 3: Interactive Quiz
+            with st.container():
+                st.markdown(f"**🧠 Fun Fact {i}:** {fact}")
+                if i < len(lesson["fun_facts"]):
+                    st.divider()
+
+    # Quiz Tab - Enhanced with better feedback
     with tab3:
-        st.markdown("### 🧩 Test Your Understanding")
-        st.markdown("Answer these questions to check how well you understood the concept:")
+        st.markdown("### 🧩 Test Your Knowledge")
+        st.markdown(f"Answer these questions about **{lesson['topic']}**:")
         
         quiz_results = []
         
-        for i, quiz in enumerate(lesson["quizzes"], 1):
-            st.markdown(f"**Question {i}:** {quiz['question']}")
+        for i, q in enumerate(lesson["quizzes"], 1):
+            st.markdown(f"**Question {i}:** {q['question']}")
             
-            # Radio buttons for answer selection
-            user_answer = st.radio(
+            # Create radio button for answer selection
+            answer = st.radio(
                 "Select your answer:",
-                quiz['options'],
+                q["options"],
                 key=f"quiz_{i}",
                 index=None,
                 label_visibility="hidden"
@@ -460,241 +574,149 @@ if st.session_state.current_lesson:
             
             # Check answer button
             if st.button(f"✅ Check Answer {i}", key=f"check_{i}"):
-                if user_answer:
-                    correct_answer = quiz['options'][ord(quiz['answer']) - 65]  # Convert A-D to index
-                    
-                    if user_answer == correct_answer:
-                        st.success("🎉 **Correct!** Great job understanding the concept!")
+                if answer:
+                    if answer.startswith(q["answer"]):
+                        st.success("🎉 **Correct!** Well done!")
+                        st.info(f"💡 **Explanation:** This question tests your understanding of key concepts in {lesson['topic']}.")
                         quiz_results.append(True)
                     else:
-                        st.error(f"❌ **Not quite right.** The correct answer is: **{quiz['answer']}**")
-                        st.info(f"**Explanation:** {quiz['question']} The answer is {quiz['answer']} because it directly relates to the main concept we discussed.")
+                        st.error(f"❌ **Not quite right.** The correct answer is: **{q['answer']}**")
+                        st.info(f"💡 **Think about:** Focus on the fundamental principles we discussed in the explanation.")
                         quiz_results.append(False)
                 else:
                     st.warning("⚠️ Please select an answer first!")
             
-            st.markdown("---")
+            st.divider()
         
         # Quiz summary
         if quiz_results:
-            correct_count = sum(quiz_results)
-            total_count = len(quiz_results)
-            score_percentage = (correct_count / total_count) * 100
+            correct = sum(quiz_results)
+            total = len(quiz_results)
+            percentage = (correct / total) * 100
             
-            if score_percentage >= 80:
-                st.success(f"🏆 **Excellent!** You got {correct_count}/{total_count} correct ({score_percentage:.0f}%)")
-                st.balloons()
-            elif score_percentage >= 60:
-                st.info(f"👍 **Good work!** You got {correct_count}/{total_count} correct ({score_percentage:.0f}%)")
-            else:
-                st.warning(f"📚 **Keep learning!** You got {correct_count}/{total_count} correct ({score_percentage:.0f}%)")
-                st.info("💡 Review the explanation tab and try the quiz again!")
-    
-    # Tab 4: Audio Player
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Score", f"{correct}/{total}")
+            with col2:
+                st.metric("Percentage", f"{percentage:.0f}%")
+            with col3:
+                if percentage >= 80:
+                    st.success("🏆 Excellent!")
+                elif percentage >= 60:
+                    st.info("👍 Good work!")
+                else:
+                    st.warning("📚 Keep learning!")
+
+    # Audio Tab
     with tab4:
-        st.markdown("### 🔊 Listen and Learn")
+        st.markdown("### 🔊 Listen to Your Lesson")
         
         if st.session_state.audio_file:
-            st.success("✅ Audio is ready! Click play to listen:")
-            
-            # Audio player
+            st.success("✅ Audio ready!")
             st.audio(st.session_state.audio_file)
             
-            # Audio controls
-            col1, col2, col3 = st.columns(3)
-            
+            col1, col2 = st.columns(2)
             with col1:
-                if st.button("🔄 Regenerate Audio", key="regenerate_audio"):
-                    with st.spinner("🔄 Creating new audio..."):
-                        audio_file, error = generate_audio(
-                            f"Lesson on {lesson['topic']}. {lesson['explanation']}", 
-                            language=audio_language
-                        )
-                        if error:
-                            st.error(f"Audio generation failed: {error}")
+                if st.button("🔄 New Audio"):
+                    with st.spinner("Generating new audio..."):
+                        audio, err = generate_audio(f"{lesson['topic']} lesson. {lesson['explanation']}", language=audio_language)
+                        if err:
+                            st.error(err)
                         else:
-                            st.session_state.audio_file = audio_file
+                            st.session_state.audio_file = audio
                             st.success("Audio updated!")
                             st.rerun()
-            
             with col2:
-                if st.button("💾 Download Audio", key="download_audio"):
+                if st.button("💾 Download"):
                     try:
-                        with open(st.session_state.audio_file, 'rb') as audio_file:
-                            audio_bytes = audio_file.read()
+                        with open(st.session_state.audio_file, 'rb') as f:
+                            audio_bytes = f.read()
                             st.download_button(
-                                label="📱 Save Audio File",
+                                "📱 Save Audio",
                                 data=audio_bytes,
                                 file_name=f"{lesson['topic']}_lesson.mp3",
                                 mime="audio/mpeg"
                             )
                     except Exception as e:
                         st.error(f"Download failed: {e}")
-            
-            with col3:
-                if st.button("⏹️ Stop Audio", key="stop_audio"):
-                    st.session_state.audio_file = None
-                    st.rerun()
         else:
-            st.info("🔊 Generate audio for your lesson by clicking the button above!")
-            st.markdown("---")
-            st.markdown("### 🎧 Audio Learning Benefits")
-            st.markdown("""
-            **Why audio learning is powerful:**
-            - 👂 **Accessibility**: Great for visual impairments or when eyes are busy
-            - 🧠 **Memory**: Auditory learning reinforces text comprehension  
-            - ⏰ **Convenience**: Learn while commuting, exercising, or relaxing
-            - 🔄 **Repetition**: Easy to replay complex concepts multiple times
-            - 🎯 **Focus**: Different learning style for better retention
-            """)
+            if st.button("🔊 Generate Audio"):
+                with st.spinner("Creating audio narration..."):
+                    audio, err = generate_audio(f"{lesson['topic']} lesson. {lesson['explanation']}", language=audio_language)
+                    if err:
+                        st.error(err)
+                    else:
+                        st.session_state.audio_file = audio
+                        st.success("Audio ready!")
+                        st.rerun()
 
-else:
-    # Welcome screen when no lesson is generated
-    st.markdown("## 🎯 Welcome to AI Science Explainer!")
-    
-    col1, col2 = st.columns([2, 1])
-    
-    with col1:
-        st.markdown("""
-        ### 🌟 What You'll Get
-        
-        **📖 Comprehensive Explanations**
-        - Clear, level-appropriate content
-        - Real-world examples you can relate to
-        - Scientific concepts made simple
-        
-        **🎉 Engaging Fun Facts** 
-        - Surprising discoveries about each topic
-        - Memorable details that stick
-        - Perfect conversation starters
-        
-        **🧩 Interactive Quizzes**
-        - Test your understanding
-        - Instant feedback and explanations  
-        - Track your learning progress
-        
-        **🔊 Audio Narration**
-        - Listen to lessons on-the-go
-        - Perfect for auditory learners
-        - Download for offline listening
-        """)
-    
-    with col2:
-        st.markdown("### 🎓 How to Use")
-        st.markdown("""
-        1. **Enter a topic** you'd like to learn about
-        2. **Choose your level** (Beginner/Intermediate/Advanced)
-        3. **Click 'Generate Lesson'**
-        4. **Explore each tab** for different learning experiences
-        5. **Test yourself** with the interactive quiz
-        """)
-        
-        # Quick topic suggestions
-        st.markdown("### 💡 Popular Topics")
-        suggested_topics = [
-            "Photosynthesis", "DNA Structure", "Climate Change", 
-            "Quantum Physics", "Solar System", "Volcanoes",
-            "Gravity", "Magnets", "The Human Brain"
-        ]
-        
-        for topic in suggested_topics:
-            if st.button(f"📚 {topic}", key=f"suggested_{topic.replace(' ', '_')}"):
-                st.session_state.current_topic = topic
-                st.rerun()
-
-# ---------- Lesson History ----------
-with st.expander("📚 **Lesson History**", expanded=False):
+# ---------- Enhanced History Section ----------
+with st.expander("📚 Complete Lesson History", expanded=False):
     if st.session_state.history:
-        st.markdown("### Your Learning Journey")
-        
-        # History controls
-        col1, col2, col3 = st.columns([2, 1, 1])
-        
+        # History statistics
+        col1, col2, col3 = st.columns(3)
         with col1:
-            # Filter options
-            filter_level = st.selectbox("Filter by level:", ["All"] + list(set(l["level"] for l in st.session_state.history)))
-        
+            st.metric("Total Lessons", len(st.session_state.history))
         with col2:
-            # Sort options
-            sort_by = st.selectbox("Sort by:", ["Newest First", "Oldest First", "Alphabetical"])
-        
+            topics = [h['topic'] for h in st.session_state.history]
+            unique_topics = len(set(topics))
+            st.metric("Unique Topics", unique_topics)
         with col3:
-            # Clear history
-            if st.button("🗑️ Clear All"):
-                st.session_state.history.clear()
-                st.rerun()
+            ai_generated = sum(1 for h in st.session_state.history if h.get('ai_generated', True))
+            st.metric("AI Generated", f"{ai_generated}/{len(st.session_state.history)}")
         
-        # Filter and sort history
-        filtered_history = st.session_state.history.copy()
-        if filter_level != "All":
-            filtered_history = [lesson for lesson in filtered_history if lesson["level"] == filter_level]
+        st.markdown("---")
         
-        if sort_by == "Oldest First":
-            filtered_history.reverse()
-        elif sort_by == "Alphabetical":
-            filtered_history.sort(key=lambda x: x["topic"])
-        
-        # Display history
-        for i, lesson in enumerate(filtered_history, 1):
+        # Display lessons
+        for i, lesson in enumerate(reversed(st.session_state.history), 1):
             with st.container():
-                col_a, col_b, col_c = st.columns([3, 1, 1])
+                col1, col2, col3, col4 = st.columns([3, 1, 1, 1])
                 
-                with col_a:
+                with col1:
                     st.markdown(f"**{i}. {lesson['topic']}** ({lesson['level']})")
                     
-                    # Preview of explanation
-                    preview = lesson["explanation"][:150] + "..." if len(lesson["explanation"]) > 150 else lesson["explanation"]
-                    st.caption(preview)
+                    # Show quiz quality indicator
+                    if len(lesson.get('quizzes', [])) >= 3:
+                        st.success("✅ Complete quiz")
+                    else:
+                        st.warning("⚠️ Quiz may be incomplete")
                     
                     # Timestamp
-                    timestamp = datetime.fromisoformat(lesson["timestamp"])
-                    st.caption(f"📅 {timestamp.strftime('%B %d, %Y at %I:%M %p')}")
+                    timestamp = datetime.fromisoformat(lesson['timestamp'])
+                    st.caption(f"📅 {timestamp.strftime('%b %d, %Y at %I:%M %p')}")
                 
-                with col_b:
-                    if st.button("🔄 Review", key=f"review_{i}"):
+                with col2:
+                    if st.button("👁️ View", key=f"view_{i}"):
                         st.session_state.current_lesson = lesson
                         st.rerun()
                 
-                with col_c:
+                with col3:
                     if st.button("🗑️ Delete", key=f"delete_{i}"):
-                        filtered_history.remove(lesson)
                         st.session_state.history.remove(lesson)
+                        save_history_to_file(st.session_state.history)
+                        st.success("Lesson deleted")
                         st.rerun()
-        
-        # History statistics
-        if filtered_history:
-            st.markdown("---")
-            col1, col2, col3 = st.columns(3)
-            
-            with col1:
-                total_words = sum(lesson.get("word_count", 0) for lesson in filtered_history)
-                st.metric("Total Words Read", total_words)
-            
-            with col2:
-                avg_words = total_words // len(filtered_history) if filtered_history else 0
-                st.metric("Average per Lesson", avg_words)
-            
-            with col3:
-                unique_topics = len(set(lesson["topic"] for lesson in filtered_history))
-                st.metric("Unique Topics", unique_topics)
-    
+                
+                with col4:
+                    word_count = lesson.get('word_count', 0)
+                    st.caption(f"📝 {word_count} words")
+                
+                st.divider()
     else:
-        st.info("📚 Your lesson history will appear here as you explore different topics!")
+        st.info("📚 No lessons saved yet. Generate your first lesson to get started!")
 
 # ---------- Footer ----------
 st.markdown("---")
 col1, col2, col3 = st.columns(3)
 
 with col1:
-    st.caption("🎯 **Personalized Learning**")
-    st.caption("Each lesson adapts to your chosen difficulty level")
+    st.caption("🎯 **Guaranteed Quiz Generation**")
+    st.caption("Every lesson includes 3 interactive questions")
 
 with col2:
-    st.caption("🚀 **AI-Powered**")  
-    st.caption("Powered by Google Gemini for accurate content")
+    st.caption("🤖 **AI-Powered Content**")  
+    st.caption("Powered by Google Gemini with fallback support")
 
 with col3:
-    st.caption("📱 **Multi-Modal**")
-    st.caption("Learn through text, audio, and interactive quizzes")
-
-# ---------- Helper Functions ----------
+    st.caption("💾 **Persistent Storage**")
+    st.caption("Your lessons are saved locally and persistently")
