@@ -42,234 +42,109 @@ def load_history_from_file():
 
 # ---------- Quiz Generator ----------
 def generate_topic_specific_quiz(topic, level, explanation_text=""):
-    """Generate quiz questions specific to the topic using keyword analysis."""
+    """Generate quiz questions dynamically based on topic and level."""
     
-    # Topic-specific question templates
-    topic_templates = {
-        "photosynthesis": {
-            "Beginner": [
-                {
-                    "question": "What do plants need to make food?",
-                    "options": ["A) Sunlight, water, and carbon dioxide", "B) Only water and soil", "C) Just sunlight", "D) Only carbon dioxide"],
-                    "answer": "A"
-                },
-                {
-                    "question": "What gas do plants release during photosynthesis?",
-                    "options": ["A) Carbon dioxide", "B) Oxygen", "C) Nitrogen", "D) Hydrogen"],
-                    "answer": "B"
-                },
-                {
-                    "question": "Where in the plant does photosynthesis happen?",
-                    "options": ["A) In the roots", "B) In the leaves", "C) In the stems", "D) In the flowers"],
-                    "answer": "B"
-                }
-            ],
-            "Intermediate": [
-                {
-                    "question": "What is the main purpose of chlorophyll in photosynthesis?",
-                    "options": ["A) To absorb water", "B) To capture light energy", "C) To release oxygen", "D) To store carbon dioxide"],
-                    "answer": "B"
-                },
-                {
-                    "question": "What is the chemical formula for glucose produced in photosynthesis?",
-                    "options": ["A) CO2", "B) H2O", "C) C6H12O6", "D) O2"],
-                    "answer": "C"
-                },
-                {
-                    "question": "Which process is the opposite of photosynthesis?",
-                    "options": ["A) Respiration", "B) Transpiration", "C) Fermentation", "D) Decomposition"],
-                    "answer": "A"
-                }
-            ],
-            "Advanced": [
-                {
-                    "question": "What is the quantum efficiency of Photosystem II in optimal conditions?",
-                    "options": ["A) 0.5", "B) 0.7", "C) 0.85", "D) 0.95"],
-                    "answer": "C"
-                },
-                {
-                    "question": "Which molecule acts as the primary electron acceptor in Photosystem I?",
-                    "options": ["A) NADP+", "B) ADP", "C) ATP", "D) FAD"],
-                    "answer": "A"
-                },
-                {
-                    "question": "What is the typical action spectrum peak for chlorophyll a?",
-                    "options": ["A) 450 nm", "B) 520 nm", "C) 680 nm", "D) 750 nm"],
-                    "answer": "C"
-                }
-            ]
-        },
-        "dna": {
-            "Beginner": [
-                {
-                    "question": "What does DNA stand for?",
-                    "options": ["A) Deoxyribonucleic Acid", "B) Dynamic Nuclear Acid", "C) Double Nucleic Acid", "D) DNA is just DNA"],
-                    "answer": "A"
-                },
-                {
-                    "question": "Where is DNA found in cells?",
-                    "options": ["A) Only in the nucleus", "B) In mitochondria only", "C) In the nucleus and mitochondria", "D) Throughout the cell"],
-                    "answer": "C"
-                },
-                {
-                    "question": "What shape is DNA?",
-                    "options": ["A) Single strand", "B) Double helix", "C) Triple helix", "D) Circular ring"],
-                    "answer": "B"
-                }
-            ],
-            "Intermediate": [
-                {
-                    "question": "How many base pairs are in the human genome approximately?",
-                    "options": ["A) 1 billion", "B) 3 billion", "C) 10 billion", "D) 100 billion"],
-                    "answer": "B"
-                },
-                {
-                    "question": "Which base pairs are complementary in DNA?",
-                    "options": ["A) A-T and G-C", "B) A-G and T-C", "C) A-C and G-T", "D) A-A and T-T"],
-                    "answer": "A"
-                },
-                {
-                    "question": "What enzyme reads the DNA code during transcription?",
-                    "options": ["A) DNA polymerase", "B) RNA polymerase", "C) Helicase", "D) Ligase"],
-                    "answer": "B"
-                }
-            ],
-            "Advanced": [
-                {
-                    "question": "What is the melting temperature of DNA primarily dependent on?",
-                    "options": ["A) Length and GC content", "B) pH only", "C) Temperature only", "D) Water content"],
-                    "answer": "A"
-                },
-                {
-                    "question": "Which histone variant is associated with active transcription?",
-                    "options": ["A) H1", "B) H2A", "C) H3.3", "D) H4"],
-                    "answer": "C"
-                },
-                {
-                    "question": "What is the typical nucleosome repeat length in humans?",
-                    "options": ["A) 160 bp", "B) 185 bp", "C) 200 bp", "D) 220 bp"],
-                    "answer": "C"
-                }
-            ]
-        },
-        "atom": {
-            "Beginner": [
-                {
-                    "question": "What are the three main parts of an atom?",
-                    "options": ["A) Protons, neutrons, electrons", "B) Protons, neutrons, nucleus", "C) Electrons, nucleus, shell", "D) Protons, electrons, shell"],
-                    "answer": "A"
-                },
-                {
-                    "question": "Where is most of the mass of an atom located?",
-                    "options": ["A) In the electrons", "B) In the nucleus", "C) In the shells", "D) Equally distributed"],
-                    "answer": "B"
-                },
-                {
-                    "question": "What charge do protons have?",
-                    "options": ["A) Negative", "B) Positive", "C) Neutral", "D) Variable"],
-                    "answer": "B"
-                }
-            ],
-            "Intermediate": [
-                {
-                    "question": "How many electrons can the first energy level hold?",
-                    "options": ["A) 2", "B) 8", "C) 18", "D) 32"],
-                    "answer": "A"
-                },
-                {
-                    "question": "What happens to atomic radius as you go down a group?",
-                    "options": ["A) Increases", "B) Decreases", "C) Stays the same", "D) Fluctuates"],
-                    "answer": "A"
-                },
-                {
-                    "question": "Which particle has no charge?",
-                    "options": ["A) Proton", "B) Electron", "C) Neutron", "D) All have charges"],
-                    "answer": "C"
-                }
-            ],
-            "Advanced": [
-                {
-                    "question": "What is the quantum mechanical explanation for electron shells?",
-                    "options": ["A) Circular orbits", "B) Probability clouds", "C) Fixed positions", "D) Random movement"],
-                    "answer": "B"
-                },
-                {
-                    "question": "What is the Bohr radius of hydrogen in meters?",
-                    "options": ["A) 5.29 × 10^-11", "B) 5.29 × 10^-10", "C) 5.29 × 10^-12", "D) 5.29 × 10^-9"],
-                    "answer": "A"
-                },
-                {
-                    "question": "Which quantum number determines the energy level of an electron?",
-                    "options": ["A) Principal (n)", "B) Azimuthal (l)", "C) Magnetic (m)", "D) Spin (s)"],
-                    "answer": "A"
-                }
-            ]
-        }
-    }
-    
-    # General fallback templates for any topic
-    general_templates = {
+    # Dynamic question templates based on level
+    level_templates = {
         "Beginner": [
             {
                 "question": f"What is the main concept of {topic}?",
-                "options": [f"A) A basic process in {topic}", f"B) A complex theory about {topic}", f"C) A simple fact about {topic}", f"D) A measurement of {topic}"],
+                "options": [
+                    f"A) A basic process in {topic}", 
+                    f"B) A complex theory about {topic}", 
+                    f"C) A simple fact about {topic}", 
+                    f"D) A measurement of {topic}"
+                ],
                 "answer": "A"
             },
             {
                 "question": f"How is {topic} important in everyday life?",
-                "options": [f"A) It affects daily activities", f"B) It has no practical use", f"C) It's only theoretical", f"D) It's too complex for daily use"],
+                "options": [
+                    f"A) It affects daily activities", 
+                    f"B) It has no practical use", 
+                    f"C) It's only theoretical", 
+                    f"D) It's too complex for daily use"
+                ],
                 "answer": "A"
             },
             {
                 "question": f"What would happen if {topic} didn't exist?",
-                "options": [f"A) Nothing significant", f"B) Major changes in our world", f"C) Only minor effects", f"D) Unknown consequences"],
+                "options": [
+                    f"A) Nothing significant", 
+                    f"B) Major changes in our world", 
+                    f"C) Only minor effects", 
+                    f"D) Unknown consequences"
+                ],
                 "answer": "B"
             }
         ],
         "Intermediate": [
             {
                 "question": f"What is the underlying mechanism of {topic}?",
-                "options": [f"A) Simple cause and effect", f"B) Complex interactions between components", f"C) Random processes", f"D) Pure speculation"],
+                "options": [
+                    f"A) Simple cause and effect", 
+                    f"B) Complex interactions between components", 
+                    f"C) Random processes", 
+                    f"D) Pure speculation"
+                ],
                 "answer": "B"
             },
             {
                 "question": f"Which scientific field best describes {topic}?",
-                "options": ["A) Physics", "B) Chemistry", "C) Biology", "D) It spans multiple fields"],
+                "options": [
+                    "A) Physics", 
+                    "B) Chemistry", 
+                    "C) Biology", 
+                    "D) It spans multiple fields"
+                ],
                 "answer": "D"
             },
             {
                 "question": f"What evidence supports our understanding of {topic}?",
-                "options": ["A) Theoretical models", "B) Experimental data", "C) Mathematical proof", "D) All of the above"],
+                "options": [
+                    "A) Theoretical models", 
+                    "B) Experimental data", 
+                    "C) Mathematical proof", 
+                    "D) All of the above"
+                ],
                 "answer": "D"
             }
         ],
         "Advanced": [
             {
                 "question": f"What are the mathematical models used to describe {topic}?",
-                "options": ["A) Linear equations", "B) Differential equations", "C) Statistical models", "D) Complex computational models"],
+                "options": [
+                    "A) Linear equations", 
+                    "B) Differential equations", 
+                    "C) Statistical models", 
+                    "D) Complex computational models"
+                ],
                 "answer": "D"
             },
             {
                 "question": f"How does {topic} relate to fundamental physics principles?",
-                "options": ["A) It's unrelated", "B) It follows standard physical laws", "C) It challenges current understanding", "D) It's purely philosophical"],
+                "options": [
+                    "A) It's unrelated", 
+                    "B) It follows standard physical laws", 
+                    "C) It challenges current understanding", 
+                    "D) It's purely philosophical"
+                ],
                 "answer": "B"
             },
             {
                 "question": f"What are the current research frontiers in {topic}?",
-                "options": ["A) Established knowledge", "B) Active investigation", "C) Speculative theories", "D) Unknown territory"],
+                "options": [
+                    "A) Established knowledge", 
+                    "B) Active investigation", 
+                    "C) Speculative theories", 
+                    "D) Unknown territory"
+                ],
                 "answer": "B"
             }
         ]
     }
     
-    # Check for specific topic matches
-    topic_lower = topic.lower()
-    for key, templates in topic_templates.items():
-        if key in topic_lower or any(keyword in topic_lower for keyword in key.split()):
-            return templates.get(level, templates["Beginner"])
-    
-    # Use general templates as fallback
-    return general_templates.get(level, general_templates["Beginner"])
+    return level_templates.get(level, level_templates["Beginner"])
 
 # ---------- API Configuration ----------
 @st.cache_resource(show_spinner="🔧 Initializing AI services...")
@@ -314,7 +189,10 @@ Format with clear headers: EXPLANATION, FUN FACTS, QUIZ QUESTIONS.
         
         return {
             "explanation": explanation,
-            "fun_facts": [f"Many scientists study {topic} extensively.", f"{topic} has practical applications in daily life."],
+            "fun_facts": [
+                f"Many scientists study {topic} extensively.", 
+                f"{topic} has practical applications in daily life."
+            ],
             "quizzes": generate_topic_specific_quiz(topic, level),
             "topic": topic,
             "level": level,
@@ -360,7 +238,10 @@ def process_ai_response(text, topic, level):
             break
     
     if not facts:
-        facts = [f"Research on {topic} continues to reveal new insights.", f"{topic} plays a crucial role in scientific understanding."]
+        facts = [
+            f"Research on {topic} continues to reveal new insights.", 
+            f"{topic} plays a crucial role in scientific understanding."
+        ]
     
     facts = facts[:2] if len(facts) >= 2 else facts + [f"Interesting fact about {topic}."] * (2 - len(facts))
     
@@ -464,6 +345,10 @@ if "quiz_answers" not in st.session_state:
     st.session_state.quiz_answers = {}
 if "audio_file" not in st.session_state:
     st.session_state.audio_file = None
+if "quiz_results" not in st.session_state:
+    st.session_state.quiz_results = {}
+if "current_quiz_score" not in st.session_state:
+    st.session_state.current_quiz_score = {"correct": 0, "total": 0, "answers": {}}
 
 # ---------- Initialize AI ----------
 MODEL, status = init_gemini()
@@ -488,6 +373,7 @@ with st.sidebar:
             st.error(f"Export failed: {e}")
     if st.button("🧹 Clear All History"):
         st.session_state.history = []
+        st.session_state.current_quiz_score = {"correct": 0, "total": 0, "answers": {}}
         save_history_to_file([])
         st.success("Session cleared.")
         st.rerun()
@@ -507,6 +393,7 @@ if st.button("✨ Generate Lesson"):
             else:
                 st.session_state.current_lesson = data
                 st.session_state.history.append(data)
+                st.session_state.current_quiz_score = {"correct": 0, "total": 0, "answers": {}}
                 save_history_to_file(st.session_state.history)
                 st.success(f"✅ Lesson on {topic} ready! (Quiz guaranteed)")
                 st.balloons()
@@ -531,6 +418,7 @@ if st.session_state.current_lesson:
                 new_lesson = generate_explanation(lesson['topic'], lesson['level'])
                 st.session_state.current_lesson = new_lesson
                 st.session_state.history[-1] = new_lesson
+                st.session_state.current_quiz_score = {"correct": 0, "total": 0, "answers": {}}
                 st.rerun()
 
     tab1, tab2, tab3, tab4 = st.tabs(["📘 Explanation", "🎉 Fun Facts", "🧩 Interactive Quiz", "🔊 Audio"])
@@ -553,52 +441,103 @@ if st.session_state.current_lesson:
                 if i < len(lesson["fun_facts"]):
                     st.divider()
 
-    # Quiz Tab - Enhanced with better feedback
+    # Quiz Tab - Enhanced with real-time scoring
     with tab3:
         st.markdown("### 🧩 Test Your Knowledge")
         st.markdown(f"Answer these questions about **{lesson['topic']}**:")
         
-        quiz_results = []
+        # Initialize quiz session for this lesson if not exists
+        lesson_key = f"{lesson['topic']}_{lesson['timestamp']}"
+        if lesson_key not in st.session_state.quiz_results:
+            st.session_state.quiz_results[lesson_key] = {
+                "answers": {},
+                "submitted": False
+            }
         
-        for i, q in enumerate(lesson["quizzes"], 1):
-            st.markdown(f"**Question {i}:** {q['question']}")
-            
-            # Create radio button for answer selection
-            answer = st.radio(
-                "Select your answer:",
-                q["options"],
-                key=f"quiz_{i}",
-                index=None,
-                label_visibility="hidden"
-            )
-            
-            # Check answer button
-            if st.button(f"✅ Check Answer {i}", key=f"check_{i}"):
-                if answer:
-                    if answer.startswith(q["answer"]):
-                        st.success("🎉 **Correct!** Well done!")
-                        st.info(f"💡 **Explanation:** This question tests your understanding of key concepts in {lesson['topic']}.")
-                        quiz_results.append(True)
-                    else:
-                        st.error(f"❌ **Not quite right.** The correct answer is: **{q['answer']}**")
-                        st.info(f"💡 **Think about:** Focus on the fundamental principles we discussed in the explanation.")
-                        quiz_results.append(False)
-                else:
-                    st.warning("⚠️ Please select an answer first!")
-            
-            st.divider()
+        quiz_data = st.session_state.quiz_results[lesson_key]
         
-        # Quiz summary
-        if quiz_results:
-            correct = sum(quiz_results)
-            total = len(quiz_results)
-            percentage = (correct / total) * 100
+        # Display current score progress
+        if quiz_data["answers"]:
+            correct_answers = sum(1 for answer in quiz_data["answers"].values() if answer["is_correct"])
+            total_answered = len(quiz_data["answers"])
             
             col1, col2, col3 = st.columns(3)
             with col1:
-                st.metric("Score", f"{correct}/{total}")
+                st.metric("Current Score", f"{correct_answers}/{total_answered}")
             with col2:
-                st.metric("Percentage", f"{percentage:.0f}%")
+                if total_answered > 0:
+                    percentage = (correct_answers / total_answered) * 100
+                    st.metric("Percentage", f"{percentage:.0f}%")
+                else:
+                    st.metric("Percentage", "0%")
+            with col3:
+                st.metric("Questions Left", f"{len(lesson['quizzes']) - total_answered}")
+        
+        # Display each question
+        for i, q in enumerate(lesson["quizzes"], 1):
+            st.markdown(f"**Question {i}:** {q['question']}")
+            
+            # Check if this question has been answered
+            question_key = f"q_{i}"
+            is_answered = question_key in quiz_data["answers"]
+            
+            # Create radio button for answer selection
+            selected_answer = st.radio(
+                "Select your answer:",
+                q["options"],
+                key=f"quiz_{lesson_key}_{i}",
+                index=None if not is_answered else next((idx for idx, opt in enumerate(q["options"]) if opt.startswith(quiz_data["answers"][question_key]["selected"])), None),
+                disabled=is_answered,
+                label_visibility="hidden"
+            )
+            
+            # Answer submission
+            col1, col2 = st.columns([1, 4])
+            with col1:
+                if not is_answered and selected_answer:
+                    if st.button(f"✅ Submit Answer {i}", key=f"submit_{i}"):
+                        # Check if answer is correct
+                        is_correct = selected_answer.startswith(q["answer"])
+                        
+                        # Store the answer
+                        quiz_data["answers"][question_key] = {
+                            "selected": selected_answer[0],  # Store just the letter (A, B, C, D)
+                            "is_correct": is_correct,
+                            "correct_answer": q["answer"]
+                        }
+                        
+                        # Update current quiz score
+                        st.session_state.current_quiz_score["total"] += 1
+                        if is_correct:
+                            st.session_state.current_quiz_score["correct"] += 1
+                        
+                        st.success("✅ Answer submitted!")
+                        st.rerun()
+            
+            with col2:
+                if is_answered:
+                    answer_data = quiz_data["answers"][question_key]
+                    if answer_data["is_correct"]:
+                        st.success("🎉 **Correct!** Well done!")
+                    else:
+                        st.error(f"❌ **Not quite right.** The correct answer is: **{q['answer']}**")
+                    st.info(f"💡 **Explanation:** This question tests your understanding of key concepts in {lesson['topic']}.")
+            
+            st.divider()
+        
+        # Final quiz summary
+        if quiz_data["answers"] and len(quiz_data["answers"]) == len(lesson["quizzes"]):
+            correct_answers = sum(1 for answer in quiz_data["answers"].values() if answer["is_correct"])
+            total_questions = len(lesson["quizzes"])
+            percentage = (correct_answers / total_questions) * 100
+            
+            st.markdown("### 🏆 Quiz Complete!")
+            
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric("Final Score", f"{correct_answers}/{total_questions}")
+            with col2:
+                st.metric("Final Percentage", f"{percentage:.0f}%")
             with col3:
                 if percentage >= 80:
                     st.success("🏆 Excellent!")
@@ -606,6 +545,20 @@ if st.session_state.current_lesson:
                     st.info("👍 Good work!")
                 else:
                     st.warning("📚 Keep learning!")
+            
+            # Detailed breakdown
+            st.markdown("#### 📊 Answer Breakdown:")
+            for i, q in enumerate(lesson["quizzes"], 1):
+                question_key = f"q_{i}"
+                answer_data = quiz_data["answers"][question_key]
+                status = "✅" if answer_data["is_correct"] else "❌"
+                st.write(f"{status} **Question {i}:** Your answer: {answer_data['selected']} | Correct answer: {q['answer']}")
+            
+            # Reset quiz button
+            if st.button("🔄 Retake Quiz"):
+                del st.session_state.quiz_results[lesson_key]
+                st.session_state.current_quiz_score = {"correct": 0, "total": 0, "answers": {}}
+                st.rerun()
 
     # Audio Tab
     with tab4:
