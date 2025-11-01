@@ -81,6 +81,7 @@ streamlit run app.py
     ├── 🖼️ lesson_generation.png
     ├── 🖼️ quiz_interface.png
     └── 🖼️ lesson_history.png
+    ├── 🖼️ audio_interface.png
 ```
 
 ## 🔑 API Configuration
