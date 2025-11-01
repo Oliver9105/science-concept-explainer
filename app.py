@@ -1,4 +1,4 @@
-import os, re, io, tempfile, json, time
+import os, re, json, io, tempfile, time # Adjusted import order for style
 import streamlit as st
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -26,7 +26,8 @@ def save_history_to_file(history):
             json.dump(history, f, indent=2)
         return True
     except Exception as e:
-        st.error(f"Failed to save history: {e}")
+        # Polished Error Message
+        st.error(f"Persistence Error: Could not save history data. Details: {e}")
         return False
 
 def load_history_from_file():
@@ -36,13 +37,14 @@ def load_history_from_file():
             with open(HISTORY_FILE, "r", encoding="utf-8") as f:
                 return json.load(f)
         except Exception as e:
-            st.error(f"Failed to load history: {e}")
+            # Polished Error Message
+            st.error(f"Persistence Error: Could not load history data. Details: {e}")
             return []
     return []
 
 # ---------- Quiz Generator ----------
 def generate_topic_specific_quiz(topic, level, explanation_text=""):
-    """Generate quiz questions dynamically based on topic and level."""
+    """Generates predefined, level-specific quiz questions for local fallback."""
     
     # Dynamic question templates based on level
     level_templates = {
@@ -320,7 +322,7 @@ def extract_robust_quiz(text, topic, level):
     return extracted_quizzes
 
 def extract_key_points(explanation):
-    """Extract 3-4 concise takeaways."""
+    """Extract 3-4 concise key takeaways from the lesson text."""
     sentences = explanation.split('.')
     points = [s.strip() for s in sentences if len(s.strip()) > 20][:4]
     return points or ["Main ideas extracted from explanation."]
@@ -362,10 +364,12 @@ with st.sidebar:
     audio_language = st.selectbox("🎧 Audio Language", ["en", "es", "fr", "de"], index=0)
 
     st.markdown("---")
-    if st.button("💾 Save Progress Now"):
+    # Polished Button 1
+    if st.button("💾 Persist Session Data"):
         if save_history_to_file(st.session_state.history):
             st.success("✅ History saved successfully!")
-    if st.button("📤 Export Lessons"):
+    # Polished Button 2
+    if st.button("📤 Export History JSON"):
         try:
             with open(HISTORY_FILE, "rb") as f:
                 st.download_button("⬇️ Download JSON", data=f, file_name="my_lessons.json")
@@ -593,7 +597,8 @@ if st.session_state.current_lesson:
                     except Exception as e:
                         st.error(f"Download failed: {e}")
         else:
-            if st.button("🔊 Generate Audio"):
+            # Polished Button 3
+            if st.button("🔊 Synthesize Narration"):
                 with st.spinner("Creating audio narration..."):
                     audio, err = generate_audio(f"{lesson['topic']} lesson. {lesson['explanation']}", language=audio_language)
                     if err:
@@ -628,11 +633,11 @@ with st.expander("📚 Complete Lesson History", expanded=False):
                 with col1:
                     st.markdown(f"**{i}. {lesson['topic']}** ({lesson['level']})")
                     
-                    # Show quiz quality indicator
+                    # Polished Warning Message
                     if len(lesson.get('quizzes', [])) >= 3:
                         st.success("✅ Complete quiz")
                     else:
-                        st.warning("⚠️ Quiz may be incomplete")
+                        st.warning("⚠️ Quiz structure incomplete")
                     
                     # Timestamp
                     timestamp = datetime.fromisoformat(lesson['timestamp'])
