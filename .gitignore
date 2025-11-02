@@ -1,1 +1,14 @@
+# Ignore local secrets and env files
+secrets.toml
 .env
+
+# Python artifacts
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+
+# VSCode and other editors
+.vscode/
+.idea/
