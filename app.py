@@ -5,9 +5,25 @@ import io
 import tempfile
 import time
 import streamlit as st
-from dotenv import load_dotenv
-import google.generativeai as genai
-from gtts import gTTS
+
+# Optional dependencies: import safely so missing packages don't crash the app at import time.
+try:
+    from dotenv import load_dotenv
+except Exception:
+    # Provide a harmless fallback if python-dotenv isn't available in the runtime.
+    def load_dotenv(*args, **kwargs):
+        return False
+
+try:
+    import google.generativeai as genai
+except Exception:
+    genai = None
+
+try:
+    from gtts import gTTS
+except Exception:
+    gTTS = None
+
 from datetime import datetime
 
 # ---------- Setup ----------
@@ -156,6 +172,10 @@ def generate_topic_specific_quiz(topic, level, explanation_text=""):
 # ---------- API Configuration ----------
 @st.cache_resource(show_spinner="🔧 Initializing AI services...")
 def init_gemini():
+    # If the package isn't installed, return a clear status instead of crashing.
+    if genai is None:
+        return None, "❌ google-generativeai package not installed"
+
     if not GENAI_API_KEY:
         return None, "❌ Missing GOOGLE_API_KEY in .env"
     try:
@@ -335,6 +355,9 @@ def extract_key_points(explanation):
 @st.cache_data(show_spinner="🔊 Generating audio...")
 def generate_audio(text, language='en'):
     """Convert text to speech with gTTS."""
+    if gTTS is None:
+        return None, "gTTS (gtts) package not installed"
+
     try:
         tts = gTTS(text=text, lang=language)
         with tempfile.NamedTemporaryFile(delete=False, suffix=".mp3") as tmp:
