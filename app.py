@@ -5,15 +5,14 @@ import io
 import tempfile
 import time
 import streamlit as st
-# REMOVED: from dotenv import load_dotenv - Use st.secrets instead on Streamlit Cloud
+from dotenv import load_dotenv
 import google.generativeai as genai
 from gtts import gTTS
 from datetime import datetime
 
 # ---------- Setup ----------
-# Load the API key first from Streamlit Secrets (for cloud), 
-# then fallback to environment variables (for local testing)
-GENAI_API_KEY = st.secrets.get("GOOGLE_API_KEY", os.getenv("GOOGLE_API_KEY"))
+load_dotenv()
+GENAI_API_KEY = os.getenv("GOOGLE_API_KEY")
 HISTORY_FILE = "lessons.json"
 
 st.set_page_config(
@@ -48,7 +47,7 @@ def load_history_from_file():
             return []
     return []
 
-# ---------- Quiz Generator (Fallback Logic) ----------
+# ---------- Quiz Generator ----------
 def generate_topic_specific_quiz(topic, level, explanation_text=""):
     """Generates predefined, level-specific quiz questions for local fallback."""
     
@@ -157,10 +156,8 @@ def generate_topic_specific_quiz(topic, level, explanation_text=""):
 # ---------- API Configuration ----------
 @st.cache_resource(show_spinner="🔧 Initializing AI services...")
 def init_gemini():
-    # Updated to check the key correctly loaded by st.secrets or os.getenv
     if not GENAI_API_KEY:
-        # User-friendly error message for missing key
-        return None, "❌ Missing GOOGLE_API_KEY. Set it in Streamlit Secrets."
+        return None, "❌ Missing GOOGLE_API_KEY in .env"
     try:
         genai.configure(api_key=GENAI_API_KEY)
         model = genai.GenerativeModel("gemini-2.0-flash")
@@ -195,7 +192,7 @@ Format with clear headers: EXPLANATION, FUN FACTS, QUIZ QUESTIONS.
         return process_ai_response(text, topic, level)
     except Exception as e:
         # Fallback response when AI fails
-        explanation = f"{topic} is an important scientific concept. It involves various processes and mechanisms that are fundamental to understanding our world. The applications of {topic} are found throughout nature and technology, making it essential for scientific literacy. (Error: {e})"
+        explanation = f"{topic} is an important scientific concept. It involves various processes and mechanisms that are fundamental to understanding our world. The applications of {topic} are found throughout nature and technology, making it essential for scientific literacy."
         
         return {
             "explanation": explanation,
@@ -396,7 +393,7 @@ topic = st.text_input("🎓 Enter a science topic", placeholder="e.g., Photosynt
 level = st.selectbox("📘 Select Level", ["Beginner", "Intermediate", "Advanced"])
 if st.button("✨ Generate Lesson"):
     if not MODEL:
-        st.error("❌ AI not ready. Check API key in Streamlit Secrets.")
+        st.error("❌ AI not ready. Check API key.")
     elif topic:
         with st.spinner(f"Generating lesson on {topic}..."):
             data = generate_explanation(topic, level)
