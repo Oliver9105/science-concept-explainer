@@ -55,8 +55,10 @@ If you're deploying to Streamlit Cloud, make sure the repo is public or grant St
 
 ### 📦 Installation
 
+Install required packages from `requirements.txt` so versions and extras are consistent:
+
 ```bash
-pip install streamlit google-generativeai gtts python-dotenv
+pip install -r requirements.txt
 ```
 
 ### ⚙️ Setup
