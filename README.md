@@ -29,7 +29,27 @@ The **AI Science Explainer** is a comprehensive educational tool designed to mak
 
 ## 🚀 Quick Start
 
-### 📋 Prerequisites
+### � Clone this repo
+
+You can clone this repository locally using one of the following commands:
+
+HTTPS:
+
+```bash
+git clone https://github.com/Oliver9105/science-concept-explainer.git
+```
+
+SSH:
+
+```bash
+git clone git@github.com:Oliver9105/science-concept-explainer.git
+```
+
+If you prefer, you can also download the repository as a ZIP from GitHub.
+
+If you're deploying to Streamlit Cloud, make sure the repo is public or grant Streamlit access to the private repo when connecting the app.
+
+### �📋 Prerequisites
 - **Python 3.8+**
 - **Google API key**
 
